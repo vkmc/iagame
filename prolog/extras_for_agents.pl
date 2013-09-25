@@ -49,10 +49,11 @@ display_ag:-
 	write('skill: '), write(AgSkill), write('	   '),
 
 	at([agent, me], MyPos),
-	write('Pos: '), write(MyPos), write('	       '),
+	write('Pos: '), %write(MyPos), 
+        write('	       '),
 
-%	property([agent, me], dir, MyDir),
-%	write('Dir: '), write(MyDir),
+	%property([agent, me], dir, MyDir),
+	%write('Dir: '), write(MyDir),
 
 	nl, nl,
 
@@ -332,6 +333,7 @@ last_element(X, [_Y|Ys]):-
 %
 % implies(+Ant, +Cons)
 %
+
 % Tiene éxito si no se satisface Ant, o se satisfacen tanto Ant como
 % Cons.
 

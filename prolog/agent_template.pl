@@ -26,7 +26,7 @@ run:-
 
       %writeln(Percept),
 
-      update_beliefs(Percept),
+      update_beliefs(Percept), !,
 
       display_ag, nl,
 

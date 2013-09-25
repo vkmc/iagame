@@ -23,93 +23,177 @@
 
 update_beliefs(Perc):-
 
-	% Se agrega el conocimiento del nuevo tiempo percibidos.
+	% Se elimina cualquier valor temporal asociado a una percepcion anterior
+        % Se agrega el conocimiento del valor temporal de la percepcion actual.
+        %
+        % T es el tiempo actual
+
 	retractall(time(_)),
 	member(time(T), Perc),		
 	assert(time(T)),
 
-	% Se eliminan las entidades que desaparecieron de su antigua posición.
-	forall(
-		(
-			member(node(_,Pos,_),Perc),
-			at(Entity,Pos),
-			not(member(at(Entity,Pos),Perc))
-		),
-			retract(at(Entity,Pos))
-	      ),
+        % Eliminar conocimiento previo
 
-	% Se agregan las entidades que no estaban en la memoria del agente.
-	forall(
-		(
-			member(at(Entity,Pos),Perc),
-			not(at(Entity,Pos))
-			
-		),
-			assert(at(Entity,Pos))
-	      ),
+	% Si el agente recuerda que en una posicion vio una entidad
+        % y en la percepcion actual no encuentra nada sobre la misma posicion,
+        % se elimina el conocimiento asociado.
+        % Ejemplo, una entidad oro fue recogida por otro agente.
+        % 
+        % Pos1 es la posicion se deberia encontrar la entidad
+        % E1 es la entidad recordada
 
-	%retractall(atPos(_,_)),
+	forall(
+                (
+                        member(node(Pos1,_,_),Perc),
+			at(E1,Pos1),
+			not(member(at(E1,Pos1),Perc))
+		),(
+			retract(at(E1,Pos1)),
+                        retract(atPos(E1,_))
+                )
+              ),
+
+        % Si el agente recuerda que en una posicion vio una entidad
+        % y en la percepcion actual ve a esa misma entidad en otra posicion distinta,
+        % se elimina el conocimiento asociado.
+        % Ejemplo, un agente se mueve de Pos2 a Pos3.
+        %
+        % Pos2 es la posicion donde se deberia encontrar la entidad
+        % Pos3 es la nueva posicion en donde se ve la entidad
+        % E2 es la entidad recordada
+
+        forall(
+                (
+                        member(at(E2, Pos3), Perc),
+                        at(E2, Pos2),
+                        Pos2 \= Pos3
+                ),(
+                        retract(at(E2, Pos2)),
+                        retract(atPos(E2,_))
+                )
+              ),
+
+        % Si el agente recuerda que una entidad E3 estaba en una posicion sobre el mapa
+        % y en la percepcion actual ve que entidad E3 es propiedad de una entidad,
+        % se elimina el conocimiento asociado.
+        % Ejemplo, un agente recogio una entidad oro
+        %
+        % E3 es la entidad que estaba sobre el mapa y ahora es propiedad de otra entidad
+        % Pos4 es la posicion del mapa en la que se encontraba E3
+
+        forall(
+                (
+                        member(has(_,E3),Perc),
+                        at(E3,Pos4)
+                ),(
+                        retract(at(E3,Pos4)),
+                        retract(atPos(E3,_))
+                )
+              ),
 	
-	% Se eliminan los hechos has/2 que han sido afectados por la adicion de un at/2
-	% Si esta has(E1,E2) entre nuestros hechos, pero en la percepcion detectamos que esta at(E2,_)
-	% esto quiere decir que E1 no tiene mas a E2
+        % Si el agente recuerda que una entidad E4 tenia a otra entidad E5
+        % y en la percepcion actual ve que entidad E5 esta en una posicion sobre el mapa,
+        % se elimina el conocimiento asociado.
+        % Ejemplo, un agente dejo caer una entidad oro.
+        %
+        % E4 es la entidad que tenia a la entidad E5
+        % E5 es la entidad que era propiedad de E4 y ahora esta sobre el mapa
 
 	forall(
 		(
-			member(at(E2,_),Perc),
-			has(E1,E2)
+			member(at(E5,_),Perc),
+			has(E4,E5)
 		),
-			retract(has(E1,E2))
+			retract(has(E4,E5))
 	      ),
 
-	% Se eliminan los hechos at/2 que han sido afectados por la adicion de un has/2
-	% Si esta at(E2,_) entre nuestros hechos, pero en la percepcion detectamos que esta has(E1,E2)
-	% esto quiere decir que E2 no está más en el suelo. 
+        % Si el agente recuerda que una entidad E6 tenia a otra entidad E8
+        % y en la percepcion actual ve que entidad E7 tiene a la entidad E8,
+        % se elimina el conocimiento asociado.
+        % Ejemplo, un agente E6 dejo caer una entidad oro y otro agente E7 lo recogio.
+        %
+        % E6 es la entidad que tenia a la entidad E8
+        % E7 es la entidad que actualmente tiene a la entidad E8
 
 	forall(
 		(
-			member(has(E1,E2),Perc),
-			at(E2,_)
-		),(
-			retract(at(E2,_)),
-			assert(has(E1,E2))
-		)
-	      ),
-
-	% Se eliminan los hechos has/2 que no sean validos en la percepcion actual
-	% Si existe has(E1,E3) y en la percepcion existe has(E2,E3), y E1 != E2, 
-	% entonces sustituimos has(E1,E3) con has(E2,E3)
-
-	forall(
-		(
-			member(has(E2,E3), Perc),
-			has(E1,E3),
-			E1\=E2
-		),(
-			retract(has(E1,E3)),
-			assert(has(E2,E3))
-		)
-	      ),
-
-	% Se actualizan los conocimientos de entity_descr/2 eliminando los conocimientos previos y agregando los de la percepción actual.
-	forall(
-		(
-			member(entity_descr(E,L2),Perc),
-			entity_descr(E,L1)
-		),(
-			retract(entity_descr(E,L1)),
-			assert(entity_descr(E,L2))
-		)
-	      ),
-
-
-	% Se agrega el conocimiento de los nuevos nodos percibidos.
-	forall(
-		(
-			member(nodo(Id,Pos,Connections), Perc),
-			not(nodo(Id,Pos,Connections))
+			member(has(E7,E8), Perc),
+			has(E6,E8),
+			E6 \= E7
 		),
-		
-			assert(nodo(Id,Pos,Connections))
-				
+			retract(has(E6,E8))
+	      ),
+
+        % Se elimina el conocimiento sobre pertenencias
+        %
+        % E9 es la entidad que tenia a la entidad E10
+        % E10 es la entidad de E9
+
+        forall(
+                (
+                        member(at(E9,_),Perc),
+                        has(E9,E10)
+                ),
+                        retract(has(E9,E10))
+              ),
+
+	% Se elimina el conocimiento de las descripciones de las entidades
+        %
+        % Nota: No tiene sentido controlar que descripciones 
+        % han sido modificadas, por lo que se actualizan todas.
+        %
+        % E11 es la entidad descripta
+        % L1 es la lista de descripciones de E11
+         
+	forall(
+		(
+			member(entity_descr(E11,_),Perc),
+                        entity_descr(E11,L1)
+		),(
+                        retract(entity_descr(E11,L1))
+		)
+	      ),
+
+        % Agregar conocimiento provisto por la percepcion
+
+	% at/2
+        % Se agregan las entidades que no estaban en la memoria del agente.
+	
+        forall(
+                (
+			member(at(E12,Pos5),Perc),
+                        member(atPos(E12, Vector1),Perc),
+			not(at(E12,Pos5))
+		),(
+			assert(at(E12,Pos5)),
+                        assert(atPos(E12, Vector1))
+                )
+	      ),
+
+        % has/2
+        % Se agregan todas las relaciones de pertenencia que no estaban
+        % en la memoria del agente.
+
+        forall(
+                member(has(E13,E14), Perc),
+                assert(has(E13,E14))
+              ),
+
+        % entity_descr/2
+        % Se agregan todas las descripciones de entidades que no estaban
+        % en la memoria del agente.
+
+        forall(
+                member(entity_descr(E15,L2), Perc),
+                assert(entity_descr(E15,L2))
+              ),
+
+	% node/3
+        % Se agrega los nodos que no estaban en la memoria del agente.
+	forall(
+		(
+			member((node(Id,Pos6,Connections)), Perc),
+			not(node(Id,Pos6,Connections))
+		),
+        		assert(node(Id,Pos6,Connections))				
 	      ).

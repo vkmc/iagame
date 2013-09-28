@@ -33,12 +33,12 @@ buscar_plan_desplazamiento(Metas, Plan, Destino) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % inicializar_frontera(+Metas, -FronteraInicial)
-% Genera la frontera actual y construye una lista que contiene el estado
+% Genera la frontera actual y construye una lista que contiene el nodo
 % correspondiente a la posicion actual del agente.
 %
 % +Metas - Lista de posiciones que son meta
-% -FronteraInicial - Frontera con el estado correspondiente 
-% al estado actual del agente
+% -FronteraInicial - Frontera con el nodo correspondiente 
+% al nodo actual del agente
 %
 % Representacion de nodos y arcos del arbol de busqueda
 %
@@ -47,12 +47,12 @@ buscar_plan_desplazamiento(Metas, Plan, Destino) :-
 % nodo(Pos, Costo, Camino), donde Pos se mapea
 % directamente al nodo del entorno, Costo es la suma del costo 
 % de llegar hacia ese nodo desde el inicio y su heuristica, y
-% Camino es el camino hacia el estado desde el inicio
+% Camino es el camino hacia el nodo desde el inicio
 
 inicializar_frontera(Metas, [Nodo]) :-        
         at([agent,me], PosActual),
-        calcular_h_min(PosActual, Metas, H),
-        Costo = costo(0, H, H),
+        calcular_h_min(PosActual, Metas, Heuristica),
+        Costo = costo(0, Heuristica, Heuristica),
         Nodo = nodo(PosActual, Costo, []).
 
 
@@ -62,70 +62,70 @@ inicializar_frontera(Metas, [Nodo]) :-
 
 % buscar_camino(+Metas, +Frontera, +Visitados, -Camino, -Destino)
 % Dada una lista de metas y una frontera, retorna el camino
-% de menor costo desde el estado inicial hasta la meta.
+% de menor costo desde el nodo inicial hasta la meta.
 % Puede ocurrir que falle si el camino a la meta no existe, sea porque
 % no existe en el mapa o porque el camino no fue descubierto aun
 %
 % +Metas - Lista con las posiciones de las metas
-% +Frontera - Conjunto de estados que conforman la frontera actual
-% +Visitados - Conjunto de estados que ya fueron visitados
-% -Camino - Lista de estados que conforman el camino hacia la meta
+% +Frontera - Conjunto de nodos que conforman la frontera actual
+% +Visitados - Conjunto de nodos que ya fueron visitados
+% -Camino - Lista de nodos que conforman el camino hacia la meta
 % -Destino - Posicion de la meta elegida
 
-% Caso base - Encuentra el estado meta y retorna una solucion optimal
+% Caso base - Encuentra el nodo meta y retorna una solucion optimal
 
 buscar_camino(Metas, Frontera, Visitados, Solucion, Destino) :-
         seleccionar(Frontera, Visitados, nodo(Destino,_,Camino), _FronteraSinActual, _VisitadosConActual),
         es_meta(Destino, Metas),
         reverse([Destino|Camino], Solucion).
 
-% Caso recursivo - Agrega el estado al camino actual y sigue buscando
+% Caso recursivo - Agrega el nodo al camino actual y sigue buscando
 buscar_camino(Metas, Frontera, Visitados, Camino, Destino) :-
         seleccionar(Frontera, Visitados, PosActual, FronteraSinActual, VisitadosConActual),
         vecinos(PosActual, Vecinos),
         agregar_a_frontera(PosActual, Metas, Vecinos, FronteraSinActual, FronteraNueva, VisitadosConActual, VisitadosNuevo),
         buscar_camino(Metas, FronteraNueva, VisitadosNuevo, Camino, Destino).
 
-% seleccionar(+Frontera, +Visitados, -EstadoMenorCosto, -FronteraSinMenor, -VisitadosConMenor)
+% seleccionar(+Frontera, +Visitados, -NodoMenorCosto, -FronteraSinMenor, -VisitadosConMenor)
 %
-% +Frontera - Conjunto de estados que conforman la frontera actual
-% +Visitados - Conjunto de estados que ya fueron visitados
-% -EstadoMenorCosto - Estado cuya estimacion del costo total 
-% hacia la meta es menor en comparacion con otros estados.
-% -VisitadosConMenor - Conjunto de visitados al que se le agrega el estado % cuya estimacion del costo total hacia la meta es menor en comparacion
-% con otros estados
+% +Frontera - Conjunto de nodos que conforman la frontera actual
+% +Visitados - Conjunto de nodos que ya fueron visitados
+% -NodoMenorCosto - Nodo cuya estimacion del costo total 
+% hacia la meta es menor en comparacion con otros nodos.
+% -VisitadosConMenor - Conjunto de visitados al que se le agrega el nodo % cuya estimacion del costo total hacia la meta es menor en comparacion
+% con otros nodos
 
 seleccionar(Frontera, Visitados, NodoMenorCosto, FronteraSinMenor, [NodoMenorCosto|Visitados]) :-
         elegir_menor_costo(Frontera, NodoMenorCosto),
         delete(Frontera, NodoMenorCosto, FronteraSinMenor),!.
 
-% elegir_menor_costo(+Frontera, -EstadoMenorCosto)
-% Busca en la frontera el estado cuya estimacion del costo total hacia
-% la meta sea menor en comparacion con otros estados.
+% elegir_menor_costo(+Frontera, -NodoMenorCosto)
+% Busca en la frontera el nodo cuya estimacion del costo total hacia
+% la meta sea menor en comparacion con otros nodos.
 %
-% +Frontera - Conjunto de estados que conforman la frontera actual
-% -EstadoMenorCosto - Estado cuya estimacion del costo total 
-% hacia la meta es menor en comparacion con otros estados.
+% +Frontera - Conjunto de nodos que conforman la frontera actual
+% -NodoMenorCosto - Nodo cuya estimacion del costo total 
+% hacia la meta es menor en comparacion con otros nodos.
 
 elegir_menor_costo([Nodo|Frontera], NodoMenorCosto) :-
         elegir_menor_costo_aux(Frontera, Nodo, NodoMenorCosto).
 
-% elegir_menor_costo_aux(+Frontera, -EstadoMenorActual, -EstadoMenorCosto)
-% Realiza la busqueda recursiva del estado con menor costo
+% elegir_menor_costo_aux(+Frontera, -NodoMenorActual, -NodoMenorCosto)
+% Realiza la busqueda recursiva del nodo con menor costo
 %
-% +Frontera - Conjunto de estados que conforman la frontera actual
-% -EstadoMenorActual - Estado cuya estimacion del costo total hacia
+% +Frontera - Conjunto de nodos que conforman la frontera actual
+% -NodoMenorActual - Nodo cuya estimacion del costo total hacia
 % la meta es, por el momento, la menor.
-% -EstadoMenorCosto - Estado cuya estimacion del costo total 
-% hacia la meta es menor en comparacion con otros estados.
+% -NodoMenorCosto - Nodo cuya estimacion del costo total 
+% hacia la meta es menor en comparacion con otros nodos.
 
 % Caso base - Frontera vacia
 
 elegir_menor_costo_aux([], NodoMenorCosto, NodoMenorCosto).
 
-% Caso recursivo - Uno o mas estados en la frontera
-% El estado de la frontera que fue seleccionado 
-% tiene menor costo que el estado que era menor hasta el momento
+% Caso recursivo - Uno o mas nodos en la frontera
+% El nodo de la frontera que fue seleccionado 
+% tiene menor costo que el nodo que era menor hasta el momento
 
 elegir_menor_costo_aux([Nodo|Frontera], NodoMenorActual, NodoMenorCosto) :-
         Nodo = nodo(_,costo(_,_,F2),_),
@@ -134,9 +134,9 @@ elegir_menor_costo_aux([Nodo|Frontera], NodoMenorActual, NodoMenorCosto) :-
         NodoMenorNuevo = Nodo,
         elegir_menor_costo_aux(Frontera, NodoMenorNuevo, NodoMenorCosto).
 
-% Caso recursivo - Uno o mas estados en la frontera
-% El estado menor sigue siendo el menor en comparacion 
-% con otros estados
+% Caso recursivo - Uno o mas nodos en la frontera
+% El nodo menor sigue siendo el menor en comparacion 
+% con otros nodos
 
 elegir_menor_costo_aux([_Nodo|Frontera], NodoMenorActual, NodoMenorCosto) :-
         elegir_menor_costo_aux(Frontera, NodoMenorActual, NodoMenorCosto).
@@ -146,19 +146,19 @@ elegir_menor_costo_aux([_Nodo|Frontera], NodoMenorActual, NodoMenorCosto) :-
 % y falla en caso contrario
 es_meta(Destino, Metas) :- member(Destino, Metas).
 
-% agregar_a_frontera(+EstadoActual, +Metas, +Vecinos, +Frontera, -NuevaFrontera, +Visitados, -NuevoVisitados)
+% agregar_a_frontera(+NodoActual, +Metas, +Vecinos, +Frontera, -NuevaFrontera, +Visitados, -NuevoVisitados)
 
 
-% +EstadoActual - Estado en el que se encuentra actualmente 
+% +NodoActual - Nodo en el que se encuentra actualmente 
 % en el recorrido del arbol
 % +Metas - Lista con las posiciones de las metas
-% +Vecinos - Conjunto de estados adyacentes al estado actual
-% +Frontera - Conjunto de estados que conforman la frontera actual
-% -NuevaFrontera - Conjunto de estados de la frontera, incluyendo a los vecinos del estado actual
-% +Visitados - Conjunto de estados que ya fueron visitados
-% -NuevoVisitados - Conjunto de estados visitados incluyendo al estado actual
+% +Vecinos - Conjunto de nodos adyacentes al nodo actual
+% +Frontera - Conjunto de nodos que conforman la frontera actual
+% -NuevaFrontera - Conjunto de nodos de la frontera, incluyendo a los vecinos del nodo actual
+% +Visitados - Conjunto de nodos que ya fueron visitados
+% -NuevoVisitados - Conjunto de nodos visitados incluyendo al nodo actual
 
-% Caso 'Nuevo estado encontrado' - El estado no esta ni en la frontera,
+% Caso 'Nuevo nodo encontrado' - El nodo no esta ni en la frontera,
 % ni en el conjunto de visitados
 
 agregar_a_frontera(NodoActual, Metas, [Vecino|Vecinos], Frontera, [NuevoNodo|NuevaFrontera], Visitados, NuevoVisitados) :-
@@ -168,7 +168,7 @@ agregar_a_frontera(NodoActual, Metas, [Vecino|Vecinos], Frontera, [NuevoNodo|Nue
         NuevoNodo = nodo(Vecino, Costo, [PosActual|CaminoActual]),
         agregar_a_frontera(NodoActual, Metas, Vecinos, Frontera, NuevaFrontera, Visitados, NuevoVisitados),!.
 
-% Caso 'En frontera' - El estado ya esta en el conjunto frontera,
+% Caso 'En frontera' - El nodo ya esta en el conjunto frontera,
 % pero el nuevo costo es mejor
 
 agregar_a_frontera(NodoActual, Metas, [Vecino|Vecinos], Frontera, NuevaFrontera, Visitados, NuevoVisitados) :-
@@ -178,7 +178,7 @@ agregar_a_frontera(NodoActual, Metas, [Vecino|Vecinos], Frontera, NuevaFrontera,
         reemplazar_si_es_menor(NuevoNodo, Frontera, NuevaFronteraConMenor),
         agregar_a_frontera(NodoActual, Metas, Vecinos, NuevaFronteraConMenor, NuevaFrontera, Visitados, NuevoVisitados),!.
 
-% Caso 'En visitados' - El estado ya esta en el conjunto visitados,
+% Caso 'En visitados' - El nodo ya esta en el conjunto visitados,
 % pero el nuevo costo es mejor
 
 agregar_a_frontera(NodoActual, Metas, [Vecino|Vecinos], Frontera, NuevaFrontera, Visitados, NuevoVisitados) :-
@@ -196,15 +196,15 @@ agregar_a_frontera(_NodoActual, _Metas, [], Frontera, Frontera, Visitados, Visit
 agregar_a_frontera(NodoActual, Metas, [_Vecino|Vecinos], Frontera, NuevaFrontera, Visitados, NuevoVisitados) :-
         agregar_a_frontera(NodoActual, Metas, Vecinos, Frontera, NuevaFrontera, Visitados, NuevoVisitados).
 
-% reemplazar_si_es_menor(+EstadoNuevo, +ConjuntoEstados, +ConjuntoEstadosNuevo)
-% Busca un estado determinado dentro de un conjunto de estados  
+% reemplazar_si_es_menor(+NodoNuevo, +ConjuntoNodos, +ConjuntoNodosNuevo)
+% Busca un nodo determinado dentro de un conjunto de nodos  
 % y, de encontrarlo, compara los costos totales asociados.
-% Si el nuevo estado tiene menor costo, entonces lo reemplaza.
+% Si el nuevo nodo tiene menor costo, entonces lo reemplaza.
 %
-% +EstadoNuevo - Estado a buscar dentro de ConjuntoEstado
-% +ConjuntoEstados - Conjunto de estados actuales
+% +NodoNuevo - Nodo a buscar dentro de ConjuntoNodos
+% +ConjuntoNodos - Conjunto de nodos actuales
 % (en la frontera o ya visitados)
-% -ConjuntoEstadosNuevo - Conjunto de estados actuales
+% -ConjuntoNodosNuevo - Conjunto de nodos actuales
 % (en la frontera o ya visitados) posiblemente modificada
 
 reemplazar_si_es_menor(NodoNuevo, ConjuntoNodos, ConjuntoNodosNuevo) :-
@@ -213,47 +213,47 @@ reemplazar_si_es_menor(NodoNuevo, ConjuntoNodos, ConjuntoNodosNuevo) :-
         selectchk(nodo(Pos, costo(_,_,F1),_),ConjuntoNodos, NodoNuevo,ConjuntoNodosNuevo),
         F2 < F1.
         
-% calcular_costo(EstadoAnterior, EstadoActual, Metas, Costo)
-% Dado un estado, el estado anterior a el y un conjunto de metas,
+% calcular_costo(NodoAnterior, NodoActual, Metas, Costo)
+% Dado un nodo, el nodo anterior a el y un conjunto de metas,
 % calcula el menor costo a alguna de las metas del conjunto de metas
 % Representacion del Costo - costo(G, H, F) , donde G es el costo
-% del camino realizado para alcanzar EstadoActual, H es el costo estimado
-% para alcanzar a la meta a partir del EstadoActual y F es la suma de G y H
+% del camino realizado para alcanzar NodoActual, H es el costo estimado
+% para alcanzar a la meta a partir del NodoActual y F es la suma de G y H
 %
-% +EstadoAnterior - Vecino anterior directo que posee informacion
-% de costo relevante para EstadoActual
-% +EstadoActual - Estado al cual se quiere calcular el costo
+% +NodoAnterior - Vecino anterior directo que posee informacion
+% de costo relevante para NodoActual
+% +NodoActual - Nodo al cual se quiere calcular el costo
 % +Metas - Lista con las posiciones de las metas
-% -Costo - Costos asociados a EstadoActual
+% -Costo - Costos asociados a NodoActual
 calcular_costo(NodoAnterior, NodoActual, Metas, Costo) :- 
 	calcular_g(NodoAnterior, NodoActual, G),
 	calcular_h_min(NodoActual, Metas, H),
 	F is G + H,
 	Costo = costo(G, H, F).
 
-% calcular_g(EstadoAnterior, EstadoActual, Costo)
-% Determina el costo del camino realizado para alcanzar EstadoActual
-% desde el EstadoAnterior y se suma al costo del camino realizado desde
-% los estados previos hasta el EstadoAnterior
+% calcular_g(NodoAnterior, NodoActual, Costo)
+% Determina el costo del camino realizado para alcanzar NodoActual
+% desde el NodoAnterior y se suma al costo del camino realizado desde
+% los nodos previos hasta el NodoAnterior
 %
-% +EstadoAnterior - Estado anterior directo al estado actual
-% +EstadoActual - Estado actual al cual se quiere calcular el costo
+% +NodoAnterior - Nodo anterior directo al nodo actual
+% +NodoActual - Nodo actual al cual se quiere calcular el costo
 % -Costo - Entero con el costo del camino desde la posicion
-% desde donde se comenzo la busuqeda hasta el estado actual
+% desde donde se comenzo la busuqeda hasta el nodo actual
 
 calcular_g(NodoAnterior, NodoActual, Costo) :-
         NodoAnterior = nodo(IdAnterior, costo(G1,_,_),_),
         ady(IdAnterior, NodoActual, G2),
         Costo is G1 + G2.    
 
-% calcular_h_min(+Estado, +Metas, -MenorH)
-% Dado un estado y una lista de metas, 
+% calcular_h_min(+Nodo, +Metas, -MenorHeuristica)
+% Dado un nodo y una lista de metas, 
 % devuelve la heuristica calculada de menor valor
 % hacia alguna de las metas.
 %
-% +Estado - Estado del cual se quiere obtener la estimacion heuristica
+% +Nodo - Nodo del cual se quiere obtener la estimacion heuristica
 % +Metas - Lista con las posiciones de las metas
-% -MenorH - Menor valor heuristico obtenido
+% -MenorHeuristica - Menor valor heuristico obtenido
 
 calcular_h_min(Nodo, Metas, MenorHeuristica) :-
         
@@ -267,13 +267,13 @@ calcular_h_min(Nodo, Metas, MenorHeuristica) :-
                ),
         min_list(ListaHeuristicas, MenorHeuristica).
 
-% calcular_h(+EstadoVector, +EstadoMetaVector, -H)
+% calcular_h(+Nodo, +NodoMeta, -Heuristica)
 % Implementacion de la formula de distancia (o Manhattan) para 3 variables
 %
-% +Estado - Estado del cual se quiere obtener la estimacion heuristica
-% +EstadoMeta - Estado Meta seleccionada para obtener la estimacion 
+% +Nodo - Nodo del cual se quiere obtener la estimacion heuristica
+% +NodoMeta - Nodo Meta seleccionada para obtener la estimacion 
 % heuristica
-% -H - Estimacion del costo del camino desde el estado a la meta
+% -Heuristica - Estimacion del costo del camino desde el nodo a la meta
 
 calcular_h(Nodo, NodoMeta, Heuristica) :-
         node(Nodo, VectorNodo, _),
@@ -281,28 +281,28 @@ calcular_h(Nodo, NodoMeta, Heuristica) :-
         distance(VectorNodo, VectorNodoMeta, Heuristica).
 
 % no_visitado(+Id, +Frontera, +Visitados)
-% Determina si el estado identificado con Id esta o no presente en la 
+% Determina si el nodo identificado con Id esta o no presente en la 
 % Frontera o en Visitados
-% +Id - Id del estado a controlar
-% +Frontera - Conjunto de estados que conforman la frontera actual
-% +Visitados - Conjunto de estados que ya fueron visitados
+% +Id - Id del nodo a controlar
+% +Frontera - Conjunto de nodos que conforman la frontera actual
+% +Visitados - Conjunto de nodos que ya fueron visitados
 
 no_visitado(Id, Frontera, Visitados) :-
 	not(member(nodo(Id,_,_), Visitados)), 
 	not(member(nodo(Id,_,_), Frontera)).
 
-% vecinos(+Estado, -Vecinos)
-% Dado un estado se obtiene la lista de estados adyacentes
+% vecinos(+Nodo, -Vecinos)
+% Dado un nodo se obtiene la lista de nodos adyacentes
 % proximos transitables
 %
-% +Estado - Estado del cual se quieren obtener los vecinos
-% -Vecinos - Conjunto de estados adyacentes al estado actual
+% +Nodo - Nodo del cual se quieren obtener los vecinos
+% -Vecinos - Conjunto de nodos adyacentes al nodo actual
 
-vecinos(nodo(IdNodo,_Costo,_Camino), Vecinos):-
+vecinos(nodo(Nodo,_Costo,_Camino), Vecinos):-
 	findall(
                         Adyacente,
                 (
-                        node(IdNodo, _PosNodo, Connections),
+                        node(Nodo, _PosNodo, Connections),
                         member([Adyacente,_CostoAdyacente], Connections)
                 ),
                         Vecinos
@@ -316,27 +316,17 @@ vecinos(nodo(IdNodo,_Costo,_Camino), Vecinos):-
 % Construye una lista de acciones a partir del camino hallado
 % por el algoritmo A*.
 %
-% +Camino - Lista de estados que guian al agente de su posicion actual
+% +Camino - Lista de nodos que guian al agente de su posicion actual
 % hacia la meta
 % -Plan - Conjunto de acciones que debe realizar el agente para desplazarse
 % desde su posicion actual hacia la meta
 
-% Caso base - Conjunto de estados vacio
+% Caso base - Conjunto de nodos vacio
 generar_plan([NodoActual|Camino], Plan) :-
         generar_plan_aux(NodoActual, Camino, Plan).
 
 generar_plan_aux(_NodoActual, [NodoSiguiente], [move(NodoSiguiente)]) :- !.
 
-% Caso recursivo - Al menos un estado para visitar
+% Caso recursivo - Al menos un nodo para visitar
 generar_plan_aux(_NodoActual, [NodoSiguiente|Camino], [move(NodoSiguiente)|Plan]) :-
         generar_plan_aux(NodoSiguiente, Camino, Plan),!.
-        
-
-
-
-
-
-
-
-
-

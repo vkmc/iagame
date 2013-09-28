@@ -5,21 +5,15 @@
 	    display_ag/0,
 	    objects_at_sight/2,
 	    pos_in_attack_range/2,
-	    next_90_clockwise/2,
 	    ady/2,
 	    ady/3,
-	    valid_dir/1,
 	    is_a/2,
 	    property/3,
 	    update_prop/5,
 	    random_member/2,
 	    last_element/2,
-	    delete_if_exists/3
-
-	    %if_fails_do/2,
-	    %dont_fail/1,
-	    %implies/2,
-	    %throw_exception/1
+	    delete_if_exists/3,
+	    distance/3
 	  ]).
 
 
@@ -49,11 +43,7 @@ display_ag:-
 	write('skill: '), write(AgSkill), write('	   '),
 
 	at([agent, me], MyPos),
-	write('Pos: '), %write(MyPos), 
-        write('	       '),
-
-	%property([agent, me], dir, MyDir),
-	%write('Dir: '), write(MyDir),
+	write('Pos: '), write(MyPos), write('	       '),
 
 	nl, nl,
 
@@ -106,33 +96,8 @@ distance(vector(X1, Y1, Z1), vector(X2, Y2, Z2), Distance):-
 	DX is X2 - X1,
 	DY is Y2 - Y1,
 	DZ is Z2 - Z1,
-	Distance is sqrt(DX^2 + DY^2 + DZ^2);
+	Distance is sqrt(DX^2 + DY^2 + DZ^2).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-% next_90_clockwise(?Dir, ?Dir90)
-%
-% Tiene éxito si Dir90 es la dirección (n, s, e, u o) que resulta de
-% girar 90 grados en sentido horario a partir de la dirección Dir.
-
-
-next_90_clockwise(n, e).
-next_90_clockwise(e, s).
-next_90_clockwise(s, w).
-next_90_clockwise(w, n).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-% valid_dir(?Dir)
-%
-% Se satisface cuando Dir es 'n', 's', 'e' o 'w'.
-
-valid_dir(n).
-valid_dir(s).
-valid_dir(e).
-valid_dir(w).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -153,17 +118,14 @@ ady(NodeX, NodeY, Cost):- node(NodeX, _, AdyList), member([NodeY, Cost], AdyList
 % Type inheritance hierarchy
 % Establece relación directa de subtipo (mismo significado que
 % "extends" de JAVA)
-%%  Tal vez debería buscar una manera de traer este código del server, o
-%%  tenerlo en común, para no tenerlo duplicado
-
 
 is_a_direct(dragon, agent).
 
-is_a_direct(hostel, building).
+is_a_direct(inn, building).
 
 is_a_direct(grave, building).
 
-is_a_direct(treasure, object).
+is_a_direct(gold, object).
 
 is_a_direct(potion, object).
 
@@ -333,7 +295,6 @@ last_element(X, [_Y|Ys]):-
 %
 % implies(+Ant, +Cons)
 %
-
 % Tiene éxito si no se satisface Ant, o se satisfacen tanto Ant como
 % Cons.
 

@@ -9,7 +9,7 @@
 	    entity_descr/2
 	  ]).
 
-:- dynamic time/1, node/3, at/2, atPos/2, has/2, entity_descr/2.
+:- dynamic time/1, node/3, at/2, atPos/2, has/2, entity_descr/2, visitados/1.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,7 +49,8 @@ update_beliefs(Perc):-
 			not(member(at(E1,Pos1),Perc))
 		),(
 			retract(at(E1,Pos1)),
-                        retract(atPos(E1,_))
+                        retract(atPos(E1,_)),
+                        retract(visitados(Pos1))
                 )
               ),
 
@@ -69,7 +70,8 @@ update_beliefs(Perc):-
                         Pos2 \= Pos3
                 ),(
                         retract(at(E2, Pos2)),
-                        retract(atPos(E2,_))
+                        retract(atPos(E2,_)),
+                        retract(visitados(Pos2))
                 )
               ),
 
@@ -87,7 +89,8 @@ update_beliefs(Perc):-
                         at(E3,Pos4)
                 ),(
                         retract(at(E3,Pos4)),
-                        retract(atPos(E3,_))
+                        retract(atPos(E3,_)),
+                        retract(visitados(Pos4))
                 )
               ),
 	
@@ -190,10 +193,22 @@ update_beliefs(Perc):-
 
 	% node/3
         % Se agrega los nodos que no estaban en la memoria del agente.
+        write('Nodo'),
 	forall(
 		(
 			member((node(Id,Pos6,Connections)), Perc),
 			not(node(Id,Pos6,Connections))
 		),
         		assert(node(Id,Pos6,Connections))				
-	      ).
+	      ),
+
+        % visitados/1
+        % Se agrega las posiciones que han sido visitadas
+
+        forall(
+                (
+                        at([agent,me], Pos),
+                        not(visitados(Pos))
+                ),
+                        assert(visitados(Pos))
+              ).

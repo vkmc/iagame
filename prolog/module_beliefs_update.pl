@@ -6,7 +6,8 @@
 	    at/2,
 	    atPos/2,
 	    has/2,
-	    entity_descr/2
+	    entity_descr/2,
+            visitados/1
 	  ]).
 
 :- dynamic time/1, node/3, at/2, atPos/2, has/2, entity_descr/2, visitados/1.
@@ -47,11 +48,8 @@ update_beliefs(Perc):-
                         member(node(Pos1,_,_),Perc),
 			at(E1,Pos1),
 			not(member(at(E1,Pos1),Perc))
-		),(
-			retract(at(E1,Pos1)),
-                        retract(atPos(E1,_)),
-                        retract(visitados(Pos1))
-                )
+		),
+                        retract(at(E1,Pos1))               
               ),
 
         % Si el agente recuerda que en una posicion vio una entidad
@@ -69,10 +67,15 @@ update_beliefs(Perc):-
                         at(E2, Pos2),
                         Pos2 \= Pos3
                 ),(
-                        retract(at(E2, Pos2)),
-                        retract(atPos(E2,_)),
-                        retract(visitados(Pos2))
+                        retract(at(E2, Pos2))
                 )
+              ),
+
+        % Se elimina todo el conocimiento asociado a las posiciones en el mundo
+
+        forall(
+                (atPos(_,_)),
+                retract(atPos(_,_))
               ),
 
         % Si el agente recuerda que una entidad E3 estaba en una posicion sobre el mapa
@@ -88,11 +91,9 @@ update_beliefs(Perc):-
                         member(has(_,E3),Perc),
                         at(E3,Pos4)
                 ),(
-                        retract(at(E3,Pos4)),
-                        retract(atPos(E3,_)),
-                        retract(visitados(Pos4))
+                        retract(at(E3,Pos4))
                 )
-              ),
+              ),  
 	
         % Si el agente recuerda que una entidad E4 tenia a otra entidad E5
         % y en la percepcion actual ve que entidad E5 esta en una posicion sobre el mapa,
@@ -165,13 +166,19 @@ update_beliefs(Perc):-
         forall(
                 (
 			member(at(E12,Pos5),Perc),
-                        member(atPos(E12, Vector1),Perc),
 			not(at(E12,Pos5))
 		),(
-			assert(at(E12,Pos5)),
-                        assert(atPos(E12, Vector1))
+			assert(at(E12,Pos5))
                 )
 	      ),
+
+        forall(
+                (
+                        member(atPos(E16, Vector), Perc),
+                        not(atPos(E16, Vector))
+                ),
+                        assert(atPos(E16, Vector))
+              ),                       
 
         % has/2
         % Se agregan todas las relaciones de pertenencia que no estaban
@@ -187,13 +194,15 @@ update_beliefs(Perc):-
         % en la memoria del agente.
 
         forall(
-                member(entity_descr(E15,L2), Perc),
-                assert(entity_descr(E15,L2))
+                (
+                        member(entity_descr(E15,L2), Perc),
+                        L2 \= []
+                ),
+                        assert(entity_descr(E15,L2))
               ),
 
 	% node/3
         % Se agrega los nodos que no estaban en la memoria del agente.
-        write('Nodo'),
 	forall(
 		(
 			member((node(Id,Pos6,Connections)), Perc),
@@ -202,13 +211,10 @@ update_beliefs(Perc):-
         		assert(node(Id,Pos6,Connections))				
 	      ),
 
-        % visitados/1
-        % Se agrega las posiciones que han sido visitadas
+        visitados.
 
-        forall(
-                (
-                        at([agent,me], Pos),
-                        not(visitados(Pos))
-                ),
-                        assert(visitados(Pos))
-              ).
+% visitados/1
+% Se agrega las posiciones que han sido visitadas
+
+visitados :- at([agent,me], Pos), visitados(Pos),!.
+visitados :- at([agent,me], Pos), assert(visitados(Pos)).

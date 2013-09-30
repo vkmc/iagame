@@ -22,17 +22,15 @@ run:-
 
       update_beliefs(Percept), !,
 
-      %display_ag, nl,
+      % display_ag, nl,
 
-      writeln('Decidiendo accion...'),
+      % writeln('Decidiendo accion...'),
 
       decide_action(Action), !,
 
       do_action(Action),
 
       run.
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48,7 +46,7 @@ run:-
 cambiar_decision([]).
 
 cambiar_decision(_Metas) :-
-        write('En el camino encontre metas...'),
+        write('En el camino encontre metas... '),
         retract(plan(_)),
         assert(plan([])).
 
@@ -59,33 +57,35 @@ cambiar_decision(_Metas) :-
 
 % Energia baja
 decide_action(Action) :-
-	at([agent, me], Pos),
-	at([inn, IName], Pos),
+	at([agent, me],Pos),
+	at([inn, IName],Pos),
         write('Llegue a la posada '), write(IName),
         write(' en '), writeln(Pos),
-	property([agent,me], life, Energia),
-	property([agent,me], lifeTotal, EnergiaMax),
-	EnergiaCritica is EnergiaMax - 50,
-	Energia < EnergiaCritica,
+	property([agent,me],life,Energia),
+	property([agent,me],lifeTotal,EnergiaMax),
+	% EnergiaCritica is EnergiaMax - 70,
+	Energia < EnergiaMax,
 	Action = noop,
-	writeln('Descansando en posada...').
+	writeln('Descansando en posada... ').
 
+% Encuentra oro
 decide_action(Action) :-
-	at([agent, me], Pos),
-	at([gold, GName], Pos),
-	write('Encontre oro '), write(GName), write('!'), nl,
-        write('Voy a intentar tomarlo...'), nl,
+	at([agent,me],Pos),
+	at([gold,GName],Pos),
+	writeln('Encontre oro'),
+        writeln('Voy a intentar tomarlo... '),
         Action = pickup([gold, GName]),
         writeln(Action).
 
-%decide_action(Action):-
-%	atPos([agent, me], MyPos),
-%	atPos([agent, Target], TPos),
-%	Target \= me,
-%	property([agent, Target], life, TLife),
-%	TLife > 0,
-%	pos_in_attack_range(MyPos, TPos),
-%	Action = attack([agent, Target]).
+% Pelea con otros agentes (no es parte de la Etapa 1)
+decide_action(Action) :-
+	atPos([agent,me],MyPos),
+	atPos([agent,Target],TPos),
+	Target \= me,
+	property([agent,Target],life,TLife),
+	TLife > 0,
+	pos_in_attack_range(MyPos,TPos),
+	Action = attack([agent,Target]).
 
 % Plan de acciones: acciones a seguir
 decide_action(Action) :-
@@ -94,10 +94,10 @@ decide_action(Action) :-
 	Plan = [Action|Acciones],
 	retractall(plan(_)),
 	assert(plan(Acciones)),
-	write('Ejecutando plan de acciones. Proxima accion: '),
-	writeln(Action),
-        write('Quedan por ejecutar '),
-        writeln(Acciones),
+	% write('Ejecutando plan de acciones. Proxima accion: '),
+	% writeln(Action),
+        % write('Quedan por ejecutar '),
+        % writeln(Acciones),
         buscar_metas(Metas),
         cambiar_decision(Metas).
 
@@ -109,10 +109,10 @@ decide_action(Action) :-
         % Se efectua una busqueda A* con las metas obtenidas
         retractall(ucs),
         assert(ucs :- false),
-        writeln('Buscando un camino... '),
-	buscar_plan_desplazamiento(Metas, [Action|Acciones], Destino),	
-	write('Plan de acciones para ir a '), write(Destino),
-	write(': '), writeln([Action|Acciones]),
+        % writeln('Buscando un camino... '),
+	buscar_plan_desplazamiento(Metas, [Action|Acciones], _Destino),	
+	% write('Plan de acciones para ir a '), write(Destino),
+	% write(': '), writeln([Action|Acciones]),
 	retractall(plan(_)),
 	assert(plan(Acciones)).
 
@@ -122,27 +122,25 @@ decide_action(Action) :-
 	explorar(Action).
 
 decide_action(Action) :-
-        %not(at([gold,_],_)),
+        not(at([gold,_],_)),    % Si no unifica con ninguna de las anteriores y no hay mas oro que juntar, termina la exploracion
         writeln('Ya se exploro todo el mapa. El agente no tiene nada mas por hacer.'),
 	Action = noop.
-	
-
-%decide_action(Action):-
-%	at([agent, me], MyNode),
-%	findall(Node, ady(MyNode, Node), PossibleDestNodes),
-%	random_member(DestNode, PossibleDestNodes), % Selecciona aleatoriamente una posición destino.
-%       write("Nodo destino: "), writeln(DestNode),
-%	Action = move(DestNode).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%% Auxiliares %%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % explorar(-Action)
+% Si el agente no tiene ninguna meta, opta por explorar
+%
 % -Action - Proxima accion a ejecutar por el agente
 
+% En lo posible, intentara explorar aquellas posiciones que
+% no conozca en absoluto y con algo de suerte encontrara una meta
+% mas promisoria
+
 explorar(Action) :-
-        write('Buscar posiciones no exploradas: '),
+        % write('Buscar posiciones no exploradas: '),
         % Se obtiene el conjunto de posiciones conocidas por el agente que aun no han sido exploradas
 	findall(        Pos,
                 (
@@ -154,22 +152,24 @@ explorar(Action) :-
                
                ),
 	SinExplorar \= [],
-	writeln(SinExplorar),
+	% writeln(SinExplorar),
         retractall(ucs),
         assert(ucs :- true),
         % Se efectua una busqueda UCS con las metas obtenidas
-        buscar_plan_desplazamiento(SinExplorar, [Action|Acciones], Destino),
-	write('Explorando - Posicion destino: '),
-        writeln(Destino),
-        write('Explorando - Acciones a realizar: '),
-	writeln(Acciones),
+        buscar_plan_desplazamiento(SinExplorar, [Action|Acciones], _Destino),
+	% write('Explorando - Posicion destino: '),
+        % writeln(Destino),
+        % write('Explorando - Acciones a realizar: '),
+	% writeln(Acciones),
         % Eliminamos planes de accion anteriores
 	retract(plan(_)),
 	% Nuevo plan de acciones a seguir
 	assert(plan(Acciones)).
 
+% Si ya vio todo el mapa, seguira explorando por caminos conocidos
+
 explorar(Action) :-
-        write('Buscar posiciones no exploradas: '),
+        % write('Buscar posiciones no exploradas: '),
         % Se obtiene el conjunto de posiciones conocidas por el agente que aun no han sido exploradas
 	findall(        Pos,
                 (
@@ -184,11 +184,11 @@ explorar(Action) :-
         retractall(ucs),
         assert(ucs :- true),
         % Se efectua una busqueda UCS con las metas obtenidas
-        buscar_plan_desplazamiento(SinExplorar, [Action|Acciones], Destino),
-	write('Explorando - Posicion destino: '),
-        writeln(Destino),
-        write('Explorando - Acciones a realizar: '),
-	writeln(Acciones),
+        buscar_plan_desplazamiento(SinExplorar, [Action|Acciones], _Destino),
+	% write('Explorando - Posicion destino: '),
+        % writeln(Destino),
+        % write('Explorando - Acciones a realizar: '),
+	% writeln(Acciones),
         % Eliminamos planes de accion anteriores
 	retract(plan(_)),
 	% Nuevo plan de acciones a seguir
@@ -213,27 +213,35 @@ interior([[Ady,_]|Connections]) :- node(Ady,_,_), interior(Connections).
 % -Metas - Conjunto de metas del estado actual
 
 % El agente tiene bajo nivel de vida
+
 buscar_metas(Metas):- 
-        property([agent,me], life, Energia),
-        Energia < 50,
+        property([agent,me],life,Energia),
+        Energia < 70,
 	findall(InnPos,
                 (
-                        at([inn,_IName], InnPos)
-                        %node(InnPos, InnVector, _)
-                        %at([agent, me], MyPos),
-                        %node(MyPos, MyVector, _),
-                        %entity_descr([inn, IName], Propiedades),
-                        %member([forbidden_entry, EntradaProhibida], Propiedades),
-                        %distance(MyVector, InnVector, InnDist),
-                        %entradaHabilitada(EntradaProhibida, InnDist)
+                        at([inn,IName], InnPos),
+                        node(InnPos, InnVector, _),
+                        at([agent, me], MyPos),
+                        node(MyPos, MyVector, _),
+                        entity_descr([inn, IName], Propiedades),
+                        member([forbidden_entry, EntradaProhibida], Propiedades),
+                        distance(MyVector, InnVector, InnDist),
+                        entradaHabilitada(EntradaProhibida, InnDist)
                 ),
                         Metas),
-        write('Metas (posada): '), writeln(Metas).
+        at([inn,IName], InnPos),
+        entity_descr([inn, IName], Propiedades),
+        write('Metas (posada): '),write(IName),write(' '),write(Propiedades),write(' en '),writeln(InnPos).
 
 % El agente busca oro
+
 buscar_metas(Metas):-
-        findall(GPos, at([gold,_], GPos), Metas), !,
-        write('Metas (oro): '), writeln(Metas).
+        findall(GPos,
+                at([gold,_],GPos),
+                Metas),
+        at([gold,GName],GPos),
+        entity_descr([gold,GName],Propiedades),
+        write('Metas (oro): '),write(GName),write(' '),write(Propiedades),write(' en '),writeln(GPos).
 
 % entradaHabilitada(+ListaNegra, +Distancia)
 % Determina si la entrada del agente a una posada esta prohibida
@@ -243,21 +251,24 @@ buscar_metas(Metas):-
 % +Distancia - Distancia del el agente a la posada
 
 % La entrada esta habilitada - Lista negra de agentes vacia
+
 entradaHabilitada([],_) :- !.
 
 % La entrada esta habilitada - No formo parte de la lista negra
-entradaHabilitada(EntradaProhibida, _Distancia) :-
-        not(member([me, _ForbiddenUntil], EntradaProhibida)), !.
+
+entradaHabilitada(EntradaProhibida,_Distancia) :-
+        not(member([me,_ForbiddenUntil],EntradaProhibida)), !.
 
 % La entrada esta inhabilitada - Formo parte de la lista negra
 % Se calcula si pasado el tiempo tomado para llegar hacia alli
 % tendre nuevamente la entrada habilitada
-entradaHabilitada(EntradaProhibida, Distancia) :-
-        member([me, ForbiddenUntil], EntradaProhibida),
+
+entradaHabilitada(EntradaProhibida,Distancia) :-
+        member([me,ForbiddenUntil],EntradaProhibida),
         time(T),
-        ((T >= ForbiddenUntil);
-        (TiempoRestante is ForbiddenUntil - T,
-        Distancia >= TiempoRestante)).
+        T >= ForbiddenUntil,
+        TiempoRestante is ForbiddenUntil - T,
+        Distancia >= TiempoRestante.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -298,7 +309,6 @@ s:- start_ag.
 % nombre, que será el de la versión original seguido del InstanceID
 % entre paréntesis.
 
-
 start_ag_instance(InstanceID):-
                     AgClassName = dumbtrooper,
                     AgInstanceName =.. [AgClassName, InstanceID],
@@ -311,7 +321,5 @@ start_ag_instance(InstanceID):-
 		    connect,
 		    run,
 		    disconnect.
-
-
 
 si(InstanceID):- start_ag_instance(InstanceID).

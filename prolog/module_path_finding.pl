@@ -19,15 +19,15 @@ buscar_plan_desplazamiento(Metas, Plan, Destino) :-
 
         % Detectar algoritmo de busqueda e inicializar frontera
         inicializar_frontera(Metas, Frontera),
-        write('Se ejecuta la '), detectar_algoritmo, write('con las metas: '), writeln(Metas),
+        % write('Se ejecuta la '), detectar_algoritmo, write('con las metas: '), writeln(Metas),
 
         % Buscar camino
         buscar_camino(Metas, Frontera, [], Camino, Destino),
-        writeln('Camino solucion obtenido: '), writeln(Camino),
+        % writeln('Camino solucion obtenido: '), writeln(Camino),
 
         % Generar plan
-        generar_plan(Camino, Plan),
-        writeln('Plan a seguir: '), writeln(Plan).
+        generar_plan(Camino, Plan).
+        % writeln('Plan a seguir: '), writeln(Plan).
 
 detectar_algoritmo :-
         ucs,
@@ -89,6 +89,7 @@ buscar_camino(Metas, Frontera, Visitados, Solucion, Destino) :-
         reverse([Destino|Camino], Solucion).
 
 % Caso recursivo - Agrega el nodo al camino actual y sigue buscando
+
 buscar_camino(Metas, Frontera, Visitados, Camino, Destino) :-
         seleccionar(Frontera, Visitados, PosActual, FronteraSinActual, VisitadosConActual),
         vecinos(PosActual, Vecinos),
@@ -153,11 +154,12 @@ elegir_menor_costo_aux([_Nodo|Frontera], NodoMenorActual, NodoMenorCosto) :-
 % es_meta(+Destino, +Metas)
 % Tiene exito si Destino pertenece al conjunto de Metas
 % y falla en caso contrario
+
 es_meta(Destino, Metas) :- member(Destino, Metas).
 
 % agregar_a_frontera(+NodoActual, +Metas, +Vecinos, +Frontera, -NuevaFrontera, +Visitados, -NuevoVisitados)
-
-
+% Agrega un nodo a la frontera
+%
 % +NodoActual - Nodo en el que se encuentra actualmente 
 % en el recorrido del arbol
 % +Metas - Lista con las posiciones de las metas
@@ -203,6 +205,7 @@ agregar_a_frontera(_NodoActual, _Metas, [], Frontera, Frontera, Visitados, Visit
 
 % Cualquier otro caso en el que no se modifica ni la frontera
 % ni los visitados
+
 agregar_a_frontera(NodoActual, Metas, [_Vecino|Vecinos], Frontera, NuevaFrontera, Visitados, NuevoVisitados) :-
         agregar_a_frontera(NodoActual, Metas, Vecinos, Frontera, NuevaFrontera, Visitados, NuevoVisitados).
 
@@ -235,6 +238,7 @@ reemplazar_si_es_menor(NodoNuevo, ConjuntoNodos, ConjuntoNodosNuevo) :-
 % +NodoActual - Nodo al cual se quiere calcular el costo
 % +Metas - Lista con las posiciones de las metas
 % -Costo - Costos asociados a NodoActual
+
 calcular_costo(NodoAnterior, NodoActual, Metas, Costo) :- 
 	calcular_g(NodoAnterior, NodoActual, G),
 	calcular_h_min(NodoActual, Metas, H),
@@ -266,7 +270,10 @@ calcular_g(NodoAnterior, NodoActual, Costo) :-
 % -MenorHeuristica - Menor valor heuristico obtenido
 
 % Caso busqueda de costos uniformes (UCS)
+
 calcular_h_min(_Nodo, _Metas, 0) :- ucs.
+
+% Caso busqueda A*
 
 calcular_h_min(Nodo, Metas, MenorHeuristica) :-
         
@@ -336,11 +343,13 @@ vecinos(nodo(Nodo,_Costo,_Camino), Vecinos):-
 % desde su posicion actual hacia la meta
 
 % Caso base - Conjunto de nodos vacio
+
 generar_plan([NodoActual|Camino], Plan) :-
         generar_plan_aux(NodoActual, Camino, Plan).
 
 generar_plan_aux(_NodoActual, [NodoSiguiente], [move(NodoSiguiente)]) :- !.
 
 % Caso recursivo - Al menos un nodo para visitar
+
 generar_plan_aux(_NodoActual, [NodoSiguiente|Camino], [move(NodoSiguiente)|Plan]) :-
         generar_plan_aux(NodoSiguiente, Camino, Plan),!.

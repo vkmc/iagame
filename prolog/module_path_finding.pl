@@ -17,16 +17,25 @@
 
 buscar_plan_desplazamiento(Metas, Plan, Destino) :-
 
-        % Inicializar frontera
+        % Detectar algoritmo de busqueda e inicializar frontera
         inicializar_frontera(Metas, Frontera),
-        writeln('Se ejecuta A* con las metas: '), writeln(Metas),
+        write('Se ejecuta la '), detectar_algoritmo, write('con las metas: '), writeln(Metas),
 
+        % Buscar camino
         buscar_camino(Metas, Frontera, [], Camino, Destino),
         writeln('Camino solucion obtenido: '), writeln(Camino),
 
+        % Generar plan
         generar_plan(Camino, Plan),
         writeln('Plan a seguir: '), writeln(Plan).
 
+detectar_algoritmo :-
+        ucs,
+        write('busqueda de costos uniforme (UCS) ').
+
+detectar_algoritmo :-
+        not(ucs),
+        write('busqueda A* ').
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%% Inicializacion %%%%%%%%%%%%%%%%%%%%%%
@@ -57,7 +66,7 @@ inicializar_frontera(Metas, [Nodo]) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%% Algoritmo A* %%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%% Busqueda %%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % buscar_camino(+Metas, +Frontera, +Visitados, -Camino, -Destino)
@@ -175,6 +184,7 @@ agregar_a_frontera(NodoActual, Metas, [Vecino|Vecinos], Frontera, NuevaFrontera,
         NodoActual = nodo(PosActual, _CostoActual, CaminoActual),
         calcular_costo(NodoActual, Vecino, Metas, Costo),
         NuevoNodo = nodo(Vecino, Costo, [PosActual|CaminoActual]),
+
         reemplazar_si_es_menor(NuevoNodo, Frontera, NuevaFronteraConMenor),
         agregar_a_frontera(NodoActual, Metas, Vecinos, NuevaFronteraConMenor, NuevaFrontera, Visitados, NuevoVisitados),!.
 
@@ -255,6 +265,9 @@ calcular_g(NodoAnterior, NodoActual, Costo) :-
 % +Metas - Lista con las posiciones de las metas
 % -MenorHeuristica - Menor valor heuristico obtenido
 
+% Caso busqueda de costos uniformes (UCS)
+calcular_h_min(_Nodo, _Metas, 0) :- ucs.
+
 calcular_h_min(Nodo, Metas, MenorHeuristica) :-
         
         findall(
@@ -265,6 +278,7 @@ calcular_h_min(Nodo, Metas, MenorHeuristica) :-
                 ),
                         ListaHeuristicas
                ),
+
         min_list(ListaHeuristicas, MenorHeuristica).
 
 % calcular_h(+Nodo, +NodoMeta, -Heuristica)

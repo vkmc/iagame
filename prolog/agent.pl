@@ -4,7 +4,7 @@
 
 :- consult(extras_meta_preds).
 
-:- dynamic intention/1, plan/1, buscar_metas/1.
+:- dynamic intention/1, plan/1, buscar_metas/1, ucs/0.
 
 plan([]).
 
@@ -22,7 +22,7 @@ run:-
 
       update_beliefs(Percept), !,
 
-      display_ag, nl,
+      %display_ag, nl,
 
       writeln('Decidiendo accion...'),
 
@@ -39,6 +39,18 @@ run:-
 %%%%%%%%%%%%%%%%%%%%%%%%%        DELIBERATION      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% cambiar_decision(+Metas)
+% Si encuentra metas, se prioriza ir hacia ellas que seguir explorando
+%
+% +Metas - Conjunto de metas
+
+cambiar_decision([]).
+
+cambiar_decision(_Metas) :-
+        write('En el camino encontre metas...'),
+        retract(plan(_)),
+        assert(plan([])).
 
 % decide_action(-Action)
 % Determina la proxima accion que realizara el agente
@@ -58,7 +70,7 @@ decide_action(Action) :-
 	Action = noop,
 	writeln('Descansando en posada...').
 
-decide_action(Action):-
+decide_action(Action) :-
 	at([agent, me], Pos),
 	at([gold, GName], Pos),
 	write('Encontre oro '), write(GName), write('!'), nl,
@@ -76,39 +88,44 @@ decide_action(Action):-
 %	Action = attack([agent, Target]).
 
 % Plan de acciones: acciones a seguir
-decide_action(Action):-
+decide_action(Action) :-
 	plan(Plan),
 	Plan \= [],
 	Plan = [Action|Acciones],
-	retract(plan(_)),
+	retractall(plan(_)),
 	assert(plan(Acciones)),
 	write('Ejecutando plan de acciones. Proxima accion: '),
 	writeln(Action),
         write('Quedan por ejecutar '),
-	writeln(Acciones).
+        writeln(Acciones),
+        buscar_metas(Metas),
+        cambiar_decision(Metas).
 
 % No hay plan de acciones pero hay metas, se ejecuta algoritmo A*  
 decide_action(Action) :-
 	plan([]),
 	buscar_metas(Metas), % Se buscan metas
 	Metas \= [],
-	write(Metas),
-        % Se efectua la busqueda con las metas obtenidas
+        % Se efectua una busqueda A* con las metas obtenidas
+        retractall(ucs),
+        assert(ucs :- false),
         writeln('Buscando un camino... '),
 	buscar_plan_desplazamiento(Metas, [Action|Acciones], Destino),	
 	write('Plan de acciones para ir a '), write(Destino),
 	write(': '), writeln([Action|Acciones]),
-	retract(plan(_)),
+	retractall(plan(_)),
 	assert(plan(Acciones)).
 
 % No existen metas, el agente explora en busca de metas
-decide_action(Action):-
+decide_action(Action) :-
         writeln('No encontraron metas. El agente va a explorar.'),
 	explorar(Action).
 
 decide_action(Action) :-
-	Action = noop,
-	writeln('Ya se exploro todo el mapa. El agente no tiene nada mas por hacer.').
+        %not(at([gold,_],_)),
+        writeln('Ya se exploro todo el mapa. El agente no tiene nada mas por hacer.'),
+	Action = noop.
+	
 
 %decide_action(Action):-
 %	at([agent, me], MyNode),
@@ -124,22 +141,23 @@ decide_action(Action) :-
 % explorar(-Action)
 % -Action - Proxima accion a ejecutar por el agente
 
-explorar(Action):-
-        writeln('Buscar posiciones no exploradas'),
+explorar(Action) :-
+        write('Buscar posiciones no exploradas: '),
         % Se obtiene el conjunto de posiciones conocidas por el agente que aun no han sido exploradas
 	findall(        Pos,
                 (
-                        node(Pos,_,_),
-                        not(visitados(Pos))
-                ), 
+                        node(Pos,_,Connections),                        
+                        not(visitados(Pos)),
+                        not(interior(Connections))
+                ),
                         SinExplorar
+               
                ),
 	SinExplorar \= [],
-        write('Posiciones no exploradas: '),
 	writeln(SinExplorar),
-        %limite_vision(SinExplorar, AExplorar),
-        %write('Posiciones a explorar: '),
-        %writeln(AExplorar),
+        retractall(ucs),
+        assert(ucs :- true),
+        % Se efectua una busqueda UCS con las metas obtenidas
         buscar_plan_desplazamiento(SinExplorar, [Action|Acciones], Destino),
 	write('Explorando - Posicion destino: '),
         writeln(Destino),
@@ -148,7 +166,45 @@ explorar(Action):-
         % Eliminamos planes de accion anteriores
 	retract(plan(_)),
 	% Nuevo plan de acciones a seguir
-	assert(plan(Acciones)).			
+	assert(plan(Acciones)).
+
+explorar(Action) :-
+        write('Buscar posiciones no exploradas: '),
+        % Se obtiene el conjunto de posiciones conocidas por el agente que aun no han sido exploradas
+	findall(        Pos,
+                (
+                        node(Pos,_,_),                        
+                        not(visitados(Pos))
+                ),
+                        SinExplorar
+               
+               ),
+	SinExplorar \= [],
+	writeln(SinExplorar),
+        retractall(ucs),
+        assert(ucs :- true),
+        % Se efectua una busqueda UCS con las metas obtenidas
+        buscar_plan_desplazamiento(SinExplorar, [Action|Acciones], Destino),
+	write('Explorando - Posicion destino: '),
+        writeln(Destino),
+        write('Explorando - Acciones a realizar: '),
+	writeln(Acciones),
+        % Eliminamos planes de accion anteriores
+	retract(plan(_)),
+	% Nuevo plan de acciones a seguir
+	assert(plan(Acciones)).
+      
+
+% interior(+Connections)
+% Determina si los vecinos de una posicion dada se encuentran en el radio
+% de vision del agente. No se exploran posiciones que se sean visibles para el agente,
+% de este modo se mejora la eficiencia de la exploracion.
+%
+% +Connections - Lista de posiciones adyacentes a una posicion dada.
+
+interior([]).
+
+interior([[Ady,_]|Connections]) :- node(Ady,_,_), interior(Connections).
 
 % buscar_metas(-Metas)
 % Selecciona proxima meta segun los intereses y requerimientos
@@ -162,13 +218,14 @@ buscar_metas(Metas):-
         Energia < 50,
 	findall(InnPos,
                 (
-                        at([inn,IName], InnPos),
-                        node(InnPos, InnVector, _),
-                        at([agent, me], MyPos),
-                        node(MyPos, MyVector, _),
-                        entity_descr([inn, IName], [[forbidden_entry, EntradaProhibida]]),
-                        distance(MyVector, InnVector, InnDist),
-                        entradaHabilitada(EntradaProhibida, InnDist)
+                        at([inn,_IName], InnPos)
+                        %node(InnPos, InnVector, _)
+                        %at([agent, me], MyPos),
+                        %node(MyPos, MyVector, _),
+                        %entity_descr([inn, IName], Propiedades),
+                        %member([forbidden_entry, EntradaProhibida], Propiedades),
+                        %distance(MyVector, InnVector, InnDist),
+                        %entradaHabilitada(EntradaProhibida, InnDist)
                 ),
                         Metas),
         write('Metas (posada): '), writeln(Metas).
@@ -202,12 +259,6 @@ entradaHabilitada(EntradaProhibida, Distancia) :-
         (TiempoRestante is ForbiddenUntil - T,
         Distancia >= TiempoRestante)).
 
-limite_vision(Metas, _AExplorar) :- length(Metas, CantidadMetas), CantidadMetas =< 100. %,sort(Metas,MetasOrdenado), reverse(MetasOrdenado, AExplorar),!.
-limite_vision(Metas, AExplorar) :- length(Metas, CantidadMetas), CantidadMetas > 100, take(100, Metas, AExplorar),!. % sort(Metas,%MetasOrdenado), reverse(MetasOrdenado, MetasMayorAdelante),
-
-
-take(0, _ListaMetas, []).
-take(CantElementos,[Meta|ListaMetas],[Meta|NuevaListaMetas]) :- CantElementos > 0, Cant is CantElementos - 1, take(Cant, ListaMetas, NuevaListaMetas).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -228,6 +279,7 @@ take(CantElementos,[Meta|ListaMetas],[Meta|NuevaListaMetas]) :- CantElementos > 
 
 
 start_ag:- AgName = dumbtrooper,
+
            agent_init(AgName),
            assert(ag_name(AgName)),
 	   agent_reset,

@@ -30,7 +30,7 @@ update_beliefs(Perc):-
         % T es el tiempo actual
 
 	retractall(time(_)),
-	member(time(T), Perc),		
+	member(time(T),Perc),		
 	assert(time(T)),
 
         % Eliminar conocimiento previo
@@ -48,8 +48,10 @@ update_beliefs(Perc):-
                         member(node(Pos1,_,_),Perc),
 			at(E1,Pos1),
 			not(member(at(E1,Pos1),Perc))
-		),
-                        retract(at(E1,Pos1))               
+		),(
+                        retract(at(E1,Pos1)),
+                        retract(atPos(E1,_))
+                )
               ),
 
         % Si el agente recuerda que en una posicion vio una entidad
@@ -63,20 +65,16 @@ update_beliefs(Perc):-
 
         forall(
                 (
-                        member(at(E2, Pos3), Perc),
-                        at(E2, Pos2),
+                        member(at(E2, Pos3),Perc),
+                        at(E2,Pos2),
                         Pos2 \= Pos3
                 ),(
-                        retract(at(E2, Pos2))
+                        retract(at(E2,Pos2)),
+                        retract(atPos(E2,_))
                 )
               ),
 
         % Se elimina todo el conocimiento asociado a las posiciones en el mundo
-
-        forall(
-                (atPos(_,_)),
-                retract(atPos(_,_))
-              ),
 
         % Si el agente recuerda que una entidad E3 estaba en una posicion sobre el mapa
         % y en la percepcion actual ve que entidad E3 es propiedad de una entidad,
@@ -91,7 +89,8 @@ update_beliefs(Perc):-
                         member(has(_,E3),Perc),
                         at(E3,Pos4)
                 ),(
-                        retract(at(E3,Pos4))
+                        retract(at(E3,Pos4)),
+                        retract(atPos(E3,_))
                 )
               ),  
 	
@@ -121,7 +120,7 @@ update_beliefs(Perc):-
 
 	forall(
 		(
-			member(has(E7,E8), Perc),
+			member(has(E7,E8),Perc),
 			has(E6,E8),
 			E6 \= E7
 		),
@@ -166,26 +165,22 @@ update_beliefs(Perc):-
         forall(
                 (
 			member(at(E12,Pos5),Perc),
-			not(at(E12,Pos5))
+                        member(atPos(E12,V),Perc),
+			not(at(E12,Pos5)),
+                        not(atPos(E12,V))
+                
 		),(
-			assert(at(E12,Pos5))
+			assert(at(E12,Pos5)),
+                        assert(atPos(E12,V))
                 )
-	      ),
-
-        forall(
-                (
-                        member(atPos(E16, Vector), Perc),
-                        not(atPos(E16, Vector))
-                ),
-                        assert(atPos(E16, Vector))
-              ),                       
+	      ),              
 
         % has/2
         % Se agregan todas las relaciones de pertenencia que no estaban
         % en la memoria del agente.
 
         forall(
-                member(has(E13,E14), Perc),
+                member(has(E13,E14),Perc),
                 assert(has(E13,E14))
               ),
 
@@ -195,7 +190,7 @@ update_beliefs(Perc):-
 
         forall(
                 (
-                        member(entity_descr(E15,L2), Perc),
+                        member(entity_descr(E15,L2),Perc),
                         L2 \= []
                 ),
                         assert(entity_descr(E15,L2))
@@ -203,18 +198,24 @@ update_beliefs(Perc):-
 
 	% node/3
         % Se agrega los nodos que no estaban en la memoria del agente.
+
 	forall(
 		(
-			member((node(Id,Pos6,Connections)), Perc),
+			member((node(Id,Pos6,Connections)),Perc),
 			not(node(Id,Pos6,Connections))
 		),
         		assert(node(Id,Pos6,Connections))				
 	      ),
 
-        visitados.
+        % visitados/1
+        % Se agregan los nodos que han sido explorados por el agente
+        % (ademas de haberlos visto, paso por ellos)
+  
+        forall(
+                (
+                        at([agent,me],Pos),
+                        not(visitados(Pos))
 
-% visitados/1
-% Se agrega las posiciones que han sido visitadas
-
-visitados :- at([agent,me], Pos), visitados(Pos),!.
-visitados :- at([agent,me], Pos), assert(visitados(Pos)).
+                ),
+                        assert(visitados(Pos))
+               ).

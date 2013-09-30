@@ -226,7 +226,7 @@ buscar_metas(Metas):-
                         entity_descr([inn, IName], Propiedades),
                         member([forbidden_entry, EntradaProhibida], Propiedades),
                         distance(MyVector, InnVector, InnDist),
-                        entradaHabilitada(EntradaProhibida, InnDist)
+                        entrada_habilitada(EntradaProhibida, InnDist)
                 ),
                         Metas),
         at([inn,IName], InnPos),
@@ -243,7 +243,7 @@ buscar_metas(Metas):-
         entity_descr([gold,GName],Propiedades),
         write('Metas (oro): '),write(GName),write(' '),write(Propiedades),write(' en '),writeln(GPos).
 
-% entradaHabilitada(+ListaNegra, +Distancia)
+% entrada_habilitada(+ListaNegra, +Distancia)
 % Determina si la entrada del agente a una posada esta prohibida
 %
 % +ListaNegra - Lista de agentes que tienen prohibida la entrada
@@ -252,18 +252,18 @@ buscar_metas(Metas):-
 
 % La entrada esta habilitada - Lista negra de agentes vacia
 
-entradaHabilitada([],_) :- !.
+entrada_habilitada([],_) :- !.
 
 % La entrada esta habilitada - No formo parte de la lista negra
 
-entradaHabilitada(EntradaProhibida,_Distancia) :-
+entrada_habilitada(EntradaProhibida,_Distancia) :-
         not(member([me,_ForbiddenUntil],EntradaProhibida)), !.
 
 % La entrada esta inhabilitada - Formo parte de la lista negra
 % Se calcula si pasado el tiempo tomado para llegar hacia alli
 % tendre nuevamente la entrada habilitada
 
-entradaHabilitada(EntradaProhibida,Distancia) :-
+entrada_habilitada(EntradaProhibida,Distancia) :-
         member([me,ForbiddenUntil],EntradaProhibida),
         time(T),
         T >= ForbiddenUntil,

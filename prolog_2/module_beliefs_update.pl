@@ -189,10 +189,7 @@ update_beliefs(Perc):-
         % en la memoria del agente.
 
         forall(
-                (
                         member(entity_descr(E15,L2),Perc),
-                        L2 \= []
-                ),
                         assert(entity_descr(E15,L2))
               ),
 

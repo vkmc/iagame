@@ -171,43 +171,33 @@ deliberate:-            % Si llega acá significa que falló el next_primitive_act
 % string con una descripción narrada (breve) de dichas razones,
 % que luego puede ser impresa por pantalla.
 
-%_____________________________________________________________________
+% Get item
 %
-% Get treasure at position
+% Si recuerdo que hay oro o una pocion en el piso, agarrar ese oro o pocion
+% es una meta
+desire(get([Item, ItName), 'Quiero agarrar oro/pociones!') :-
+        (Item = potion; Item = gold),
+        at([Item, ItName), _PosIt).
+
+% Break into a grave
 %
-% Si recuerdo que un tesoro dado se encuentra tirado en el piso, tener
-% ese tesoro es una meta.
+% Si me encuentro con una tumba, deseo saquearla
+desire(break([grave, GrName], TrList), "Quiero profanar una tumba") :-
+        at([grave, GrName], _PosGr),
+        entity_descr([grave, GrName], [[open, false]]),
+        has([agent, me], [potion,_]),
+        findall(Gold, (has(grave, Gold)), TrList).
 
-desire(get([gold, TrName]), 'quiero apoderarme de muchos tesoros!'):-
-	at([gold, TrName], _PosTr).
-
-
-%_____________________________________________________________________
-%
 % Rest
-
-
-desire(rest, 'quiero estar descansado'):-
+%
+desire(rest, 'Quiero descansar'):-
 	property([agent, me], life, St),
 	St < 100.
 
-
-
-%_____________________________________________________________________
-%
 % Move at Random
 %
 
-desire(move_at_random, 'quiero estar siempre en movimiento!').
-
-
-
-% << TODO: DEFINIR OTROS DESEOS >>
-%
-% ACLARACIÓN: Pueden modificarse los deseos considerados, y la
-% implementación actual de desire/2, si se lo considera apropiado.
-
-
+desire(move_at_random, 'Quiero estar siempre en movimiento!').
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -226,21 +216,28 @@ desire(move_at_random, 'quiero estar siempre en movimiento!').
 % impresa por pantalla.
 :- dynamic high_priority/2.
 
-
-high_priority(rest, 'necesito descansar'):-  % runs low of stamina
+% Alta prioridad - Descansar
+high_priority(rest, 'Necesito descansar'):-  % runs low of stamina
 
 	property([agent, me], life, St),
 	St < 40, % running low of stamina...
 
 	once(at([inn, _HName], _Pos)). % se conoce al menos una posada
 
+% Alta prioridad - Devolver ataque
+high_priority(attackAgent([agent, IDAgent], ItemList), 'Me atacan! Devolviendo ataque...') :-
+        property([agent, me], harmed_by, Attackers),
+        Attacker \= [],
+        member([agent, IDAgent], Attackers),
+        findall(Item, (has([agent, IDAgent], Item)), ItemList).
 
-% << TODO: DEFINIR >>
-%
-% ACLARACIÓN: Puede modificarse la implementación actual de
-% high_priority/2, si se lo considera apropiado.
+% Alta prioridad - Agarrar un item
+high_priority(get([Item, IDItem]), 'Encontre un item, voy a agarrarlo...') :-
+        at([agent, me], Pos),
+        at([Item, IDItem], Pos),
+        (Item = gold; Item = potion).
 
-
+% Alta prioridad - Atacar agente (TODO)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -266,61 +263,63 @@ high_priority(rest, 'necesito descansar'):-  % runs low of stamina
 % viable, o agotarlas a todas.
 
 
-
-%_____________________________________________________________________
-%
 % Rest before commiting to any other desire
 %
 % Dado que el nivel de stamina es relativamente bajo, se decide ir
 % descansar antes de abordar otro deseo.
 
-select_intention(rest, 'voy a recargar antes de encarar otro deseo', Desires):-
+select_intention(rest, 'Voy a descansar antes de encarar otro deseo', Desires):-
 	member(rest, Desires),
 	property([agent, me], life, St),
 	St < 70.
 
 
-%_____________________________________________________________________
-%
-% Conseguir un objeto que se halla tirado en el suelo
+% Break into a grave
+
+select_intention(break([grave, GrName1], ItemList), 'Voy a saquear una tumba', Desires) :-
+        findall(GrPos, (member(break([grave, GrName2], ItemList2), Desires), at([grave, GrName2], GrPos)), Positions),
+        buscar_plan_desplazamiento(Positions, _Plan, Closer),
+        member(break([grave, GrName1] ItemList2), Desires),
+        at([grave, GrName1], Closer),
+        findall(Item, (has([grave, GrName], Item)), ItemList).
+
+
+% Get item
 %
 % De todos los posibles objetos tirados en el suelo que el agente desea tener,
 % selecciono como intención obtener aquel que se encuentra más cerca.
 
-select_intention(get(Obj), 'es el objeto más cercano de los que deseo obtener', Desires):-
-	findall(ObjPos, (member(get(Obj), Desires),
-			 at(Obj, ObjPos)),
-		Metas), % Obtengo posiciones de todos los objetos meta tirados en el suelo.
-	buscar_plan_desplazamiento(Metas, _Plan, CloserObjPos),
-	member(get(Obj), Desires),
-        at(Obj, CloserObjPos).
+select_intention(get([Item, ItName]), 'Item más cercano de los que deseo obtener', Desires) :-
+        at([agent, me], Pos),
+        at([Item, ItName], Pos),
+        member(get([Item, ItName]), Desires).
+
+select_intention(get([Item, ItName]), 'Item más cercano de los que deseo obtener', Desires):-
+	findall(ItPos,
+                        (member(get([Item, ItName]), Desires),
+                        (Item = gold; Item = potion),
+			 at([Item, ItName], ItPos)),
+		Goals), % Obtengo posiciones de todos los objetos meta tirados en el suelo.
+	buscar_plan_desplazamiento(Goals, _Plan, Closer),
+	member(get([Item, ItName]), Desires),
+        at([Item, ItName], Closer).
 
 
-%_____________________________________________________________________
-%
-% Rest
+% Random rest
 %
 % Si no existen objetos que deseen obtenerse, y existe el deseo de
 % descansar (stamina por debajo de 100), se decide ir a descansar.
 
-select_intention(rest, 'no tengo otra cosa más interesante que hacer', Desires):-
+select_intention(rest, 'No tengo otra cosa más interesante que hacer, asique me voy a dormir', Desires):-
 	member(rest, Desires).
 
 
-%_____________________________________________________________________
-%
+% TODO Atacar agente
+
 % Move at random
 
 select_intention(move_at_random, 'no tengo otra cosa más interesante que hacer', Desires):-
 	member(move_at_random, Desires).
-
-
-
-% << TODO: COMPLETAR DEFINICIóN >>
-%
-% ACLARACIÓN: Puede modificarse la implementación actual de
-% select_intention/3, si se lo considera apropiado.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -329,27 +328,40 @@ select_intention(move_at_random, 'no tengo otra cosa más interesante que hacer',
 % Determina si la intención Intention fue alcanzada. Esto es, si
 % se verifica de acuerdo a las creencias del agente.
 
+% Logrado si el agente esta en la posicion
+achieved(goto(Pos)):-
+	at([agent, me], Pos).
 
+% Logrado si el agente tiene el item
+achieved(get(Item)):-
+	has([agent, me], Item).
+
+% Logrado si el agente esta descansado
 achieved(rest):-
 	property([agent, me], life, St),
 	property([agent, me], lifeTotal, MaxSt),
 	AlmostMaxSt is MaxSt - 10,
 	St > AlmostMaxSt.
 
-achieved(get(Obj)):-
-	has([agent, me], Obj).
+% Logrado si el agente tiene todos los items de la tumba
+achieved(break([grave, _GrName], ItemList) :-
+        findall(Item, (has([agent, me], Item)), AgentBackpack),
+        subset(ItemList, AgentBackpack).
 
-achieved(goto(Pos)):-
-	at([agent, me], Pos).
+% Perseguir agente TODO
 
+% Logrado si el agente esta inconsiente o fuera del rango de ataque
+achieved(attack([agent, IDAgent])) :-
+        (property([agent, IDAgent], unconscious, true);
+                (at([agent, me], Pos),
+                 at([agent, IDAgent], PosAgent),
+                 property([agent, me], dir, Dir),
+                 findall(InRange, pos_in_attack_range(Pos, Dir, InRange), Range),
+                 not(member(PosAgent, Range))
+                )
+        ).
 
-% << TODO: COMPLETAR DEFINICIóN >>
-%
-% ACLARACIÓN: Puede modificarse la implementación actual de
-% achieved/1, si se lo considera apropiado.
-
-
-
+%%% HASTA ACA VK %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%      3. PLANNING         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -437,13 +449,13 @@ planning_and_execution(Action):-
 % si es deseable brindar soluciones alternativas.
 
 
+% Planificación para obtener item que esta en el suelo
+planify(get(Item), Plan):- 
+	at(Item, ItPos),
+	Plan = [goto(ItPos), pickup(Item)].
 
-planify(get(Obj), Plan):- % Planificación para obtener de un objeto que yace en el suelo
-	at(Obj, Pos),
-	Plan = [goto(Pos), pickup(Obj)].
-
-
-planify(goto(PosDest), Plan):- % Planificación para desplazarse a un destino dado
+% Planificación para desplazarse a un destino dado
+planify(goto(PosDest), Plan):- 
 	buscar_plan_desplazamiento([PosDest], Plan, _MetaLograda),
 	!. % Evita la búsqueda de soluciones alternativas para un plan de desplazamiento.
 

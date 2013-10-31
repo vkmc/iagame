@@ -292,7 +292,7 @@ calcular_h_min(Nodo, Metas, MenorHeuristica) :-
         min_list(ListaHeuristicas, MenorHeuristica).
 
 % calcular_h(+Nodo, +NodoMeta, -Heuristica)
-% Implementacion de la formula de distancia (o Manhattan) para 3 variables
+% Implementacion de la formula de distancia euclidiana (distancia para 3 variables)
 %
 % +Nodo - Nodo del cual se quiere obtener la estimacion heuristica
 % +NodoMeta - Nodo Meta seleccionada para obtener la estimacion 

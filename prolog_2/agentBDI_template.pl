@@ -421,8 +421,8 @@ achieved(chase_agent([agent, AgName])) :-
 % Logrado si el agente esta inconsiente o fuera del rango de ataque
 
 achieved(attack_agent([agent, AgName])) :-
-        %(property([agent, IDAgent], unconscious, true);
-        % life < ...?
+                property([agent, AgName], life, St),
+                St = 0,
                 at([agent, me], Pos),
                 at([agent, AgName], AgPos),
                 findall(InRange, pos_in_attack_range(Pos, InRange), Range),
@@ -587,12 +587,14 @@ planify(steal_agent([agent, AgName], ItemList), Plan) :-
 planify(chase_agent([agent, AgName]), Plan) :-
         at([agent, AgName], AgPos),
         at([agent, me], Pos),
-        AgPos \= Pos,
-        Plan = [goto(AgPos), chase_agent([agent, AgName])].
+        not(pos_in_attack_range(Pos, AgPos)),
+        node(AgPos, _, Connections),
+        random_member(NextPos, Connections),
+        Plan = [goto(NextPos), chase_agent([agent, AgName])].
 
 planify(attack_agent([agent, AgName]), Plan) :-
-        % property([agent, AgName]) controlar que este inconsciente
-        % life < ... cuanto?
+        property([agent, AgName], life, St),
+        St > 0,
         at([agent, me], Pos),
         at([agent, AgName], AgPos),
         at([inn, _InnName], InnPos),

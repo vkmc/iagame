@@ -29,8 +29,11 @@ run:-
       update_beliefs(Percept),
 
       %display_ag, nl, !,
-      deliberate,  % FUE IMPLEMENTADO DE MANERA QUE SI POSTERIORMENTE FALLA LA OBTENCIÓN DE UN PLAN PARA LA INTENCIÓN
-		   % EN PRINCIPIO SELECCIONADA, VUELVE A RECONSIDERAR INTENCIÓN.
+
+      deliberate,
+
+      % FUE IMPLEMENTADO DE MANERA QUE SI POSTERIORMENTE FALLA LA OBTENCIÓN DE UN PLAN PARA LA INTENCIÓN
+      % EN PRINCIPIO SELECCIONADA, VUELVE A RECONSIDERAR INTENCIÓN.
 
       planning_and_execution(Action),
 
@@ -50,7 +53,6 @@ run:-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % update_beliefs(+Perc)
@@ -58,8 +60,6 @@ run:-
 % Se encuentra definido en el módulo 'module_beliefs_update'.
 
 % << DESARROLLADO EN ETAPA 1 >>
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -170,39 +170,49 @@ deliberate:-            % Si llega acá significa que falló el next_primitive_act
 % string con una descripción narrada (breve) de dichas razones,
 % que luego puede ser impresa por pantalla.
 
-% Get item
+% Deseo robar a otro agente
+%
+% Si recuerdo que vi un agente, ir a robarle es una meta
+
+desire(steal_agent([agent, AgName], _ItemList), 'Me encantaria pungear a un agente...') :-
+        at([agent, AgName], _Pos), AgName \= me.
+
+% Deseo agarrar oro o pocion
 %
 % Si recuerdo que hay oro o una pocion en el piso, agarrar ese oro o pocion
 % es una meta
+
 desire(get([Item, ItName]), 'Quiero agarrar oro/pociones!') :-
         (Item = potion; Item = gold),
         at([Item, ItName], _PosIt).
 		
 
-% Break into a grave
+% Deseo saquear una tumba
 %
 % Si me encuentro con una tumba, deseo saquearla
+
 desire(break([grave, GrName], TrList), "Quiero profanar una tumba") :-
         writeln('DESEO: PROFANAR UNA TUMBA'),
-		writeln('DESEO: PROFANAR UNA TUMBA'),
-		writeln('DESEO: PROFANAR UNA TUMBA'),
-		at([grave, GrName], _PosGr),
-		entity_descr([grave, GrName], RESULTADO),
-		writeln(RESULTADO),
-        entity_descr([grave, GrName], [[open, false]]),
+	writeln('DESEO: PROFANAR UNA TUMBA'),
+	writeln('DESEO: PROFANAR UNA TUMBA'),
+	at([grave, GrName], _PosGr),
         has([agent, me], [potion,_]),
 		writeln('TENGO UNA POCION'),
         findall(Gold, (has(grave, Gold)), TrList),
 		writeln('DESEO DE PROFANAR TUMBA NO FALLIDO.').
 
-% Rest
+% Deseo descansar
 %
+% Si la vida del agente es menor a 100, desea descansar
+
 desire(rest, 'Quiero descansar'):-
 	property([agent, me], life, St),
 	St < 100.
 
-% Move at Random
+% Deseo explorar
 %
+% Si el agente no tiene algo mas importante que hacer, explora el mapa
+
 desire(explore, 'Quiero explorar'):-
 	findall(        Pos,
                 (
@@ -215,6 +225,9 @@ desire(explore, 'Quiero explorar'):-
                ),
 	SinExplorar \= [].
 
+% Deseo moverme
+%
+% Para no aburrirse, camina sin rumbo (en usa de esas se cruza otro agente!)
 
 desire(move_at_random, 'Quiero estar siempre en movimiento!').
 
@@ -235,28 +248,36 @@ desire(move_at_random, 'Quiero estar siempre en movimiento!').
 % impresa por pantalla.
 :- dynamic high_priority/2.
 
-% Alta prioridad - Descansar
-high_priority(rest, 'Necesito descansar'):-  % runs low of stamina
+% Deseo de alta prioridad - Descansar
 
+high_priority(rest, 'Necesito descansar'):-
 	property([agent, me], life, St),
-	St < 70, % running low of stamina...
-
+	St < 70, % running low of life...
 	once(at([inn, _HName], _Pos)). % se conoce al menos una posada
 
-% Alta prioridad - Devolver ataque
-high_priority(attackAgent([agent, IDAgent], ItemList), 'Me atacan! Devolviendo ataque...') :-
+
+% Deseo de alta prioridad - Devolver ataque
+
+high_priority(attack_agent([agent, AgName], ItemList), 'Me atacan! Devolviendo ataque...') :-
         property([agent, me], harmed_by, Attackers),
         Attackers \= [],
-        member([agent, IDAgent], Attackers),
-        findall(Item, (has([agent, IDAgent], Item)), ItemList).
+        member([agent, AgName], Attackers),
+        findall(Item, (has([agent, AgName], Item)), ItemList).
 
-% Alta prioridad - Agarrar un item
-high_priority(get([Item, IDItem]), 'Encontre un item, voy a agarrarlo...') :-
+% Deseo de alta prioridad - Robarle a otro agente
+
+high_priority(steal_agent([agent, AgName], ItemList), 'Me cruce un agente, voy a robarle!') :-
+        at([agemt, AgName], _),
+        AgName \= me,
+        findall(Item, (has([agent, AgName], Item)), ItemList),
+        ItemList \= [].
+
+% Deseo de alta prioridad - Agarrar un item
+
+high_priority(get([Item, ItName]), 'Encontre un item, voy a agarrarlo...') :-
         at([agent, me], Pos),
-        at([Item, IDItem], Pos),
+        at([Item, ItName], Pos),
         (Item = gold; Item = potion).
-
-% Alta prioridad - Atacar agente (TODO)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -282,7 +303,7 @@ high_priority(get([Item, IDItem]), 'Encontre un item, voy a agarrarlo...') :-
 % viable, o agotarlas a todas.
 
 
-% Rest before commiting to any other desire
+% Seleccionar intencion - Descansar
 %
 % Dado que el nivel de stamina es relativamente bajo, se decide ir
 % descansar antes de abordar otro deseo.
@@ -293,7 +314,7 @@ select_intention(rest, 'Voy a descansar antes de encarar otro deseo', Desires):-
 	St < 100.
 
 
-% Break into a grave
+% Seleccionar intencion - Saquear una tumba
 
 select_intention(break([grave, GrName1], ItemList), 'Voy a saquear una tumba', Desires) :-
 		writeln('SELECT INTENTION: PROFANAR UNA TUMBA'),
@@ -304,8 +325,13 @@ select_intention(break([grave, GrName1], ItemList), 'Voy a saquear una tumba', D
         findall(Item, (has([grave, GrName1], Item)), ItemList),
 		writeln('SELECT INTENTION NO FALLIDO: PROFANAR UNA TUMBA').
 
+% Seleccionar intencion - Robarle a otro agente
+select_intention(steal_agent([agent, AgName], ItemList), 'Voy a robarle a otro agente', _Desires) :-
+        at([agent, AgName], _AgPos),
+        AgName \= me,
+        findall(Item, (has([agent, AgName], Item)), ItemList).
 
-% Get item
+% Seleccionar intencion - Agarrar item
 %
 % De todos los posibles objetos tirados en el suelo que el agente desea tener,
 % selecciono como intención obtener aquel que se encuentra más cerca.
@@ -326,12 +352,11 @@ select_intention(get([Item, ItName]), 'Item más cercano de los que deseo obtener
         at([Item, ItName], Closer).
 
 
-		
-		
-select_intention(explore, '???', Desires):-
+% Seleccionar intencion - Explorar		
+select_intention(explore, 'Voy a explorar! A ver que encuentro...', Desires) :-
 	member(explore, Desires).
 
-% Random rest
+% Seleccionar intencion - Descansar porque no hay otras metas
 %
 % Si no existen objetos que deseen obtenerse, y existe el deseo de
 % descansar (stamina por debajo de 100), se decide ir a descansar.
@@ -339,14 +364,14 @@ select_intention(explore, '???', Desires):-
 select_intention(rest, 'No tengo otra cosa más interesante que hacer, asique me voy a dormir', Desires):-
 	member(rest, Desires).
 
+% Seleccionar intencion - Moverse aleatoriamente
 
-% TODO Atacar agente
+select_intention(move_at_random, 'No tengo otra cosa más interesante que hacer, asi que voy a caminar', Desires) :-
+        member(move_at_random, Desires).
 
-% Move at random
 
+% TODO Atacar agente?
 
-select_intention(move_at_random, 'no tengo otra cosa más interesante que hacer', Desires):-
-	member(move_at_random, Desires).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -356,14 +381,17 @@ select_intention(move_at_random, 'no tengo otra cosa más interesante que hacer',
 % se verifica de acuerdo a las creencias del agente.
 
 % Logrado si el agente esta en la posicion
+
 achieved(goto(Pos)):-
 	at([agent, me], Pos).
 
 % Logrado si el agente tiene el item
+
 achieved(get(Item)):-
 	has([agent, me], Item).
 
 % Logrado si el agente esta descansado
+
 achieved(rest):-
 	property([agent, me], life, St),
 	property([agent, me], lifeTotal, MaxSt),
@@ -371,25 +399,35 @@ achieved(rest):-
 	St > AlmostMaxSt.
 
 % Logrado si el agente tiene todos los items de la tumba
-achieved(break([grave, _GrName]), ItemList) :-
-        findall(Item, (has([agent, me], Item)), AgentBackpack).
-        subset(ItemList, AgentBackpack),
-		writeln('PUDE SAQUEAR UNA TUMBA').
 
-% Perseguir agente TODO
+achieved(break([grave, _GrName]), ItemList) :-
+        findall(Item, (has([agent, me], Item)), AgentBackpack),
+        subset(ItemList, AgentBackpack),
+	writeln('PUDE SAQUEAR UNA TUMBA').
+
+% Logrado si el agente tiene todos los items que tenia otro agente
+
+achieved(steal_agent([agent, _AgName], AgItemList)) :-
+        findall(Item, (has([agent, me], Item)), ItemList),
+        subset(ItemList, AgItemList).
+
+% Logrado si el agente esta en nuestro rango de ataque
+
+achieved(chase_agent([agent, AgName])) :-
+        at([agent, AgName], AgPos),
+        at([agent, me], Pos),
+        pos_in_attack_range(Pos, AgPos).
 
 % Logrado si el agente esta inconsiente o fuera del rango de ataque
-achieved(attack([agent, IDAgent])) :-
-        (property([agent, IDAgent], unconscious, true);
-                (at([agent, me], Pos),
-                 at([agent, IDAgent], PosAgent),
-                 property([agent, me], dir, Dir),
-                 findall(InRange, pos_in_attack_range(Pos, Dir, InRange), Range),
-                 not(member(PosAgent, Range))
-                )
-        ).
 
-%%% HASTA ACA VK %%%
+achieved(attack_agent([agent, AgName])) :-
+        %(property([agent, IDAgent], unconscious, true);
+        % life < ...?
+                at([agent, me], Pos),
+                at([agent, AgName], AgPos),
+                findall(InRange, pos_in_attack_range(Pos, InRange), Range),
+                not(member(AgPos, Range)).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%      3. PLANNING         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -476,37 +514,19 @@ planning_and_execution(Action):-
 % considerada. Analizar según la acción que se esté planificando,
 % si es deseable brindar soluciones alternativas.
 
+% Planificación para ir a descansar
 
-% Planificación para obtener item que esta en el suelo
+planify(rest, Plan):- 
+    Plan = [search_inn, stay].
 
-planify(get(Item),Plan):- % caso en que el agente está en la misma posición que el objeto
-    at(Item, ItPos),
-    at([agent, me], ItPos),
-    Plan = [pickup(Item)],!.
+% Planificación recursiva. En este caso permite repetir indefinidamente una acción (noop) hasta que la intención de alto nivel corriente (rest) sea lograda (achieved/1). Esto se hizo así dado que resulta más simple que predecir de antemano cuantos turnos exactamente debe permanecer el agente para recargarse por completo (nótese que el agente podría incluso sufrir ataques mientras está en la posada, siendo imposible planificar de antemano cuantos turnos debe permanecer en la posada para reponerse por completo)
 
-planify(get(Item), Plan):- 
-	at(Item, ItPos),
-	Plan = [goto(ItPos), pickup(Item)].
+planify(stay, [noop , stay]). 
 
-	
-% Planificación para desplazarse a un destino dado
-planify(goto(PosDest), Plan):- 
-	buscar_plan_desplazamiento([PosDest], Plan, _MetaLograda),
-	!. % Evita la búsqueda de soluciones alternativas para un plan de desplazamiento.
+% Planicación para buscar una posada
 
-
-%planify(rest, Plan):- % Planificación para desplazarse a un destino dado
-
-	%at([inn, _H], PosH),  % Selecciona una posada para ir a descansar.
-				 % <<<CHOICE POINT>>> (Posibilidad de backtracking)
-
-	%Plan = [goto(PosH), stay].
-
-planify(rest,Plan):- 
-    Plan = [search_inn,stay].	
-	
 planify(search_inn, Plan):-
-	% Esto debería funcionar, es el código que usamos en la entrega anterior
+% Esto debería funcionar, es el código que usamos en la entrega anterior
     findall(InnPos,
                 (
                         at([inn,IName], InnPos),
@@ -521,36 +541,66 @@ planify(search_inn, Plan):-
             Posadas),
     buscar_plan_desplazamiento(Posadas, _, Destino),
     Plan = [goto(Destino)].
-		
+
+% Planificación para obtener item que esta en el suelo
+
+% Caso en que el agente está en la misma posición que el objeto
+planify(get(Item),Plan):-
+    at(Item, ItPos),
+    at([agent, me], ItPos),
+    Plan = [pickup(Item)],!.
+
+% Caso en que el agente tiene que ir hasta la posición en la que esta el objeto
+planify(get(Item), Plan):- 
+	at(Item, ItPos),
+	Plan = [goto(ItPos), pickup(Item)].
 
 	
-% entrada_habilitada(+ListaNegra, +Distancia)
-% Determina si la entrada del agente a una posada esta prohibida
-%
-% +ListaNegra - Lista de agentes que tienen prohibida la entrada
-% a la posada
-% +Distancia - Distancia del el agente a la posada
-% La entrada esta habilitada - Lista negra de agentes vacia
+% Planificación para desplazarse a un destino dado
 
-entrada_habilitada([],_) :- !.
-
-% La entrada esta habilitada - No formo parte de la lista negra
-
-entrada_habilitada(EntradaProhibida,_Distancia) :-
-        not(member([me,_ForbiddenUntil],EntradaProhibida)), !.
-
-% La entrada esta inhabilitada - Formo parte de la lista negra
-% Se calcula si pasado el tiempo tomado para llegar hacia alli
-% tendre nuevamente la entrada habilitada
-
-entrada_habilitada(EntradaProhibida,Distancia) :-
-        member([me,ForbiddenUntil],EntradaProhibida),
-        time(T),
-        T >= ForbiddenUntil,
-        TiempoRestante is ForbiddenUntil - T,
-        Distancia >= TiempoRestante.	
+planify(goto(PosDest), Plan):- 
+	buscar_plan_desplazamiento([PosDest], Plan, _MetaLograda),
+	!. % Evita la búsqueda de soluciones alternativas para un plan de desplazamiento.
 
 
+%planify(rest, Plan):- % Planificación para desplazarse a un destino dado
+
+	%at([inn, _H], PosH),  % Selecciona una posada para ir a descansar.
+				 % <<<CHOICE POINT>>> (Posibilidad de backtracking)
+
+	%Plan = [goto(PosH), stay].
+
+% Planificación para sabotear una tumba
+
+planify(break([grave, GrName], _ItemList), Plan) :-
+        has([agent, me], [potion, PtName]),
+        at([grave, GrName], GrPos),
+	Plan = [goto(GrPos), cast_spell(open([grave, GrName], [potion, PtName]))].
+
+
+% Planificaciones de robo, acecho y ataque a otros agentes
+
+planify(steal_agent([agent, AgName], ItemList), Plan) :-
+        findall(get(Item), (member(Item, ItemList)), Actions),
+        append([chase_agent([agent, AgName]), attack_agent([agent, AgName])], Actions, Plan).
+
+planify(chase_agent([agent, AgName]), Plan) :-
+        at([agent, AgName], AgPos),
+        at([agent, me], Pos),
+        AgPos \= Pos,
+        Plan = [goto(AgPos), chase_agent([agent, AgName])].
+
+planify(attack_agent([agent, AgName]), Plan) :-
+        % property([agent, AgName]) controlar que este inconsciente
+        % life < ... cuanto?
+        at([agent, me], Pos),
+        at([agent, AgName], AgPos),
+        at([inn, _InnName], InnPos),
+        Pos \= InnPos,
+        pos_in_attack_range(Pos, AgPos), 
+        Plan = [attack([agent, AgName]), attack_agent([agent, AgName])].
+
+% Planificación para explorar
 
 planify(explore, Plan) :- 
 	findall(        Pos,
@@ -568,49 +618,16 @@ planify(explore, Plan) :-
         % Se efectua una busqueda UCS con las metas obtenidas
         buscar_plan_desplazamiento(SinExplorar, Plan, _Destino),
 		retractall(ucs),
-        assert(ucs :- false).
+        assert(ucs :- false).                 
 
-% interior(+Connections)
-% Determina si los vecinos de una posicion dada se encuentran en el radio
-% de vision del agente. No se exploran posiciones que se sean visibles para el agente,
-% de este modo se mejora la eficiencia de la exploracion.
-%
-% +Connections - Lista de posiciones adyacentes a una posicion dada.
+% Planificación para moverse aleatoriamente
 
-interior([]).
-
-interior([[Ady,_]|Connections]) :- node(Ady,_,_), interior(Connections).
-
-		
-		
-
-planify(stay, [noop , stay]).                     % Planificación recursiva. En este caso permite repetir indefinidamente
-                                                  % una acción (noop) hasta que la intención de alto nivel corriente
-                                                  % (rest) sea lograda (achieved/1). Esto se hizo así dado que resulta
-                                                  % más simple que predecir de antemano cuantos turnos exactamente debe
-                                                  % permanecer el agente para recargarse por completo (nótese que el agente
-						  % podría incluso sufrir ataques mientras está en la posada, siendo imposible
-						  % planificar de antemano cuantos turnos debe permanecer en la posada para
-						  % reponerse por completo)
-
-
-planify(move_at_random, Plan):- % Planificación para moverse aleatoriamente
-
+planify(move_at_random, Plan):-
 	findall(Node, node(Node, _, _), PossibleDestPos),
 
 	random_member(DestPos, PossibleDestPos), % Selecciona aleatoriamente una posición destino.
 				                 % <<<CHOICE POINT>>> (Posibilidad de backtracking)
 	Plan = [goto(DestPos)].
-
-
-% << TODO: COMPLETAR DEFINICIóN >>
-%
-% ACLARACIÓN: Puede modificarse la implementación actual de
-% planify/2, si se lo considera apropiado.
-
-
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -765,7 +782,46 @@ feasible(Plan):-
         % acciones del plan ya no se satisfacen (por ejemplo, el tesoro que voy a juntar ya no se encuentra más
         % en la posición que recordaba), entonces project/3 fallará, reflejando que el plan no es factible.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Auxiliares
 
+% entrada_habilitada(+ListaNegra, +Distancia)
+% Determina si la entrada del agente a una posada esta prohibida
+%
+% +ListaNegra - Lista de agentes que tienen prohibida la entrada
+% a la posada
+% +Distancia - Distancia del el agente a la posada
+% La entrada esta habilitada - Lista negra de agentes vacia
+
+entrada_habilitada([],_) :- !.
+
+% La entrada esta habilitada - No formo parte de la lista negra
+
+entrada_habilitada(EntradaProhibida,_Distancia) :-
+        not(member([me,_ForbiddenUntil],EntradaProhibida)), !.
+
+% La entrada esta inhabilitada - Formo parte de la lista negra
+% Se calcula si pasado el tiempo tomado para llegar hacia alli
+% tendre nuevamente la entrada habilitada
+
+entrada_habilitada(EntradaProhibida,Distancia) :-
+        member([me,ForbiddenUntil],EntradaProhibida),
+        time(T),
+        T >= ForbiddenUntil,
+        TiempoRestante is ForbiddenUntil - T,
+        Distancia >= TiempoRestante.
+
+% interior(+Connections)
+% Determina si los vecinos de una posicion dada se encuentran en el radio
+% de vision del agente. No se exploran posiciones que se sean visibles para el agente,
+% de este modo se mejora la eficiencia de la exploracion.
+%
+% +Connections - Lista de posiciones adyacentes a una posicion dada.
+
+interior([]).
+
+interior([[Ady,_]|Connections]) :- node(Ady,_,_), interior(Connections).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

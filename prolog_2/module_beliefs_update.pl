@@ -188,9 +188,13 @@ update_beliefs(Perc):-
         % Se agregan todas las descripciones de entidades que no estaban
         % en la memoria del agente.
 
-        forall(
-                        member(entity_descr(E15,L2),Perc),
-                        assert(entity_descr(E15,L2))
+        forall( (
+                        member(entity_descr(E15,L2),Perc)
+                ),(
+                        assert(entity_descr(E15,L2)),
+                        writeln('Description: '),
+                        writeln(entity_descr(E15, L2))
+                )
               ),
 
 	% node/3

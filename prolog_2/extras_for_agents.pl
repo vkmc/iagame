@@ -80,25 +80,20 @@ myName(Name):- ag_name(Name).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% pos_in_attack_range(+AgPos, +AgDir, -PosInAttackRange)
+% pos_in_attack_range(+MyPos, +TargetPos)
 %
 % Retorna una posición PosInAttackRange dentro del rango de ataque de
-% un agente que se encuentra en la posición AgPos, mirando en
-% dirección AgDir.
+% un agente que se encuentra en la posición AgPos
 
 pos_in_attack_range(MyPos, TargetPos):-
 	distance(MyPos, TargetPos, Distance),
 	Distance < 10.
-
-
 
 distance(vector(X1, Y1, Z1), vector(X2, Y2, Z2), Distance):-
 	DX is X2 - X1,
 	DY is Y2 - Y1,
 	DZ is Z2 - Z1,
 	Distance is sqrt(DX^2 + DY^2 + DZ^2).
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

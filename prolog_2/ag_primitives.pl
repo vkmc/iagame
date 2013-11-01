@@ -208,7 +208,6 @@ transform(time(T), [time(T)]).
 
 
 hasInBackpack(_AgId, [], []).
-
 hasInBackpack(AgId, [E|Es], [has(AgId, EntityId), entity_descr(EntityId, Properties) | Hs]):-
 	E = entity(Name, Type, _Node, _Position, Properties),
 	entityId(Type, Name, EntityId),
@@ -218,15 +217,3 @@ hasInBackpack(AgId, [E|Es], [has(AgId, EntityId), entity_descr(EntityId, Propert
 extractHas(EntityId, Properties, Has, RemainingProperties):-
 	delete_if_exists([has, PropHas], Properties, RemainingProperties),!,
 	hasInBackpack(EntityId, PropHas, Has).
-
-
-
-
-
-
-
-
-
-
-
-

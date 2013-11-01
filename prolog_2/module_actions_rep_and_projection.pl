@@ -55,8 +55,6 @@ action_descr([ActionName, Preconditions, AddList, DelList]):-
 	action(ActionName, Preconditions, AddList, DelList).
 
 
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % dynamic_state_rels(-InitState).
@@ -76,7 +74,6 @@ action_descr([ActionName, Preconditions, AddList, DelList]):-
 
 dynamic_state_rels(InitState):-
 	findall(Rel, dyn_state_rel(Rel), InitState).
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -129,10 +126,6 @@ static_relation(ady, 2). % Predicados definido en extras_for_agents.pl
 static_relation(is_a, 2).
 
 
-
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % holds(+Relation, +State)
@@ -153,8 +146,6 @@ holds(Relation, _State):-
 	call(Relation).
 
 
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % holds_all(+Relations, +State)
@@ -167,10 +158,6 @@ holds_all([], _State).
 holds_all([Rel | Rels], State):-
 	holds(Rel, State),
 	holds_all(Rels, State).
-
-
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -196,7 +183,6 @@ execute(ActName, SBeforeAction, SAfterAction):-
 execute(_HLAction, SBeforeAction, SBeforeAction).
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % project(+Plan, +Init, -Finish)
@@ -219,30 +205,10 @@ project(Action, _EActual, _Finish):-
 	fail.
 
 
-
-
-:-      writes_disabled,
-	redefine_system_predicate(write(_)),
-	assert(write(_)),
-	redefine_system_predicate(writeln(_)),
-	assert(writeln(_)),
-	redefine_system_predicate(nl),
-	assert(nl).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+%:-      writes_disabled,
+%	redefine_system_predicate(write(_)),
+%	assert(write(_)),
+%	redefine_system_predicate(writeln(_)),
+%	assert(writeln(_)),
+%	redefine_system_predicate(nl),
+%	assert(nl).

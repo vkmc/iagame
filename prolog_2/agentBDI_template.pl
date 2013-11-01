@@ -414,8 +414,8 @@ achieved(steal_agent([agent, _AgName], AgItemList)) :-
 % Logrado si el agente esta en nuestro rango de ataque
 
 achieved(chase_agent([agent, AgName])) :-
-        at([agent, AgName], AgPos),
-        at([agent, me], Pos),
+        atPos([agent, AgName], AgPos),
+        atPos([agent, me], Pos),
         pos_in_attack_range(Pos, AgPos).
 
 % Logrado si el agente esta inconsiente o fuera del rango de ataque
@@ -423,8 +423,8 @@ achieved(chase_agent([agent, AgName])) :-
 achieved(attack_agent([agent, AgName])) :-
                 property([agent, AgName], life, St),
                 St = 0,
-                at([agent, me], Pos),
-                at([agent, AgName], AgPos),
+                atPos([agent, me], Pos),
+                atPos([agent, AgName], AgPos),
                 findall(InRange, pos_in_attack_range(Pos, InRange), Range),
                 not(member(AgPos, Range)).
 
@@ -581,25 +581,31 @@ planify(break([grave, GrName], _ItemList), Plan) :-
 % Planificaciones de robo, acecho y ataque a otros agentes
 
 planify(steal_agent([agent, AgName], ItemList), Plan) :-
-        findall(get(Item), (member(Item, ItemList)), Actions),
-        append([chase_agent([agent, AgName]), attack_agent([agent, AgName])], Actions, Plan).
+        property([agent, AgName], life, St),
+        St = 0,
+        findall(get(Item), (member(Item, ItemList)), Actions).
+        %append([chase_agent([agent, AgName]), attack_agent([agent, AgName])], Actions, Plan).
 
 planify(chase_agent([agent, AgName]), Plan) :-
-        at([agent, AgName], AgPos),
-        at([agent, me], Pos),
+        atPos([agent, AgName], AgPos),
+        atPos([agent, me], Pos),
         not(pos_in_attack_range(Pos, AgPos)),
         node(AgPos, _, Connections),
         random_member(NextPos, Connections),
+        writeln('Entre en el POS IN ATTACK RANGE - CHASE'),
+        writeln('Entre en el POS IN ATTACK RANGE - CHASE'),
         Plan = [goto(NextPos), chase_agent([agent, AgName])].
 
 planify(attack_agent([agent, AgName]), Plan) :-
         property([agent, AgName], life, St),
         St > 0,
-        at([agent, me], Pos),
-        at([agent, AgName], AgPos),
-        at([inn, _InnName], InnPos),
+        atPos([agent, me], Pos),
+        atPos([agent, AgName], AgPos),
+        atPos([inn, _InnName], InnPos),
         Pos \= InnPos,
-        pos_in_attack_range(Pos, AgPos), 
+        pos_in_attack_range(Pos, AgPos),
+        writeln('Entre en el POS IN ATTACK RANGE - ATTACK'),
+        writeln('Entre en el POS IN ATTACK RANGE - ATTACK'),
         Plan = [attack([agent, AgName]), attack_agent([agent, AgName])].
 
 % Planificación para explorar

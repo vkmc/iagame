@@ -7,12 +7,12 @@
 
 :- consult(extras_meta_preds).
 
-:- dynamic intention/1, plan/1, ucs/0.
+:- dynamic intention/1, plan/1, ucs/0, atPos/2.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%           AGENT	   	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%           AGENT	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%       EXECUTION CYCLE	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -40,8 +40,6 @@ run:-
       do_action(Action),
 
       run,!.
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -178,12 +176,14 @@ desire(rest, 'want to have a nap'):-
 	property([agent, me], life, St),
 	St < 150.
 
+
 % Deseo robar a otro agente
 %
 % Si recuerdo que vi un agente, ir a robarle es una meta
 
 desire(steal_agent([agent, AgName], _ItemList), 'I wanna steal from an agent') :-
         at([agent, AgName], _Pos), AgName \= me.
+
 
 % Deseo agarrar oro o pocion
 %
@@ -199,12 +199,11 @@ desire(get([Item, ItName]), 'I wanna grab gold/potions!') :-
 %
 % Si me encuentro con una tumba, deseo saquearla
 
-desire(break([grave, GrName], TrList), "I wanna break into a grave") :-
+desire(break([grave, GrName]), "I wanna break into a grave") :-
 	at([grave, GrName], _PosGr),
-        writeln('DESEO: PROFANAR UNA TUMBA'),
-        has([agent, me], [potion,_]),
-	writeln('TENGO UNA POCION'),
-        findall(Gold, (has(grave, Gold)), TrList).
+	has([agent, me], [potion,_]),
+	has([grave, GrName], [gold,_]).
+
 
 % Deseo explorar
 %
@@ -220,15 +219,14 @@ desire(explore, 'I wanna go explore'):-
                         SinExplorar
                
                ),
-	SinExplorar \= [],
-	writeln('Voy a explorar'),
-	writeln(SinExplorar).
+	SinExplorar \= [].
 
 % Deseo moverme
 %
 % Para no aburrirse, camina sin rumbo (en usa de esas se cruza otro agente!)
 
 desire(move_at_random, 'I wanna keep moving!').
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -245,14 +243,20 @@ desire(move_at_random, 'I wanna keep moving!').
 % En su forma más básica Explanation puede ser un string con una
 % descripción narrada (breve) de dichas razones, que luego puede ser
 % impresa por pantalla.
+
 :- dynamic high_priority/2.
 
 % Deseo de alta prioridad - Descansar
 
 high_priority(rest, 'I need to rest'):-
 	property([agent, me], life, St),
-	St < 150, % running low of life...
+	Low is St * 0.35,
+	St < Low, % running low of life...
 	once(at([inn, _HName], _Pos)). % se conoce al menos una posada
+
+high_priority(rest, 'Since I\'m around, I could take a nap') :-
+	atPos([agent, me], Pos),
+	atPos([inn, _InnName], Pos).
 
 
 % Deseo de alta prioridad - Atacar agente
@@ -262,6 +266,7 @@ high_priority(attack_agent([agent, AgName]), 'I\'m being attacked! Attacking bac
         atPos([agent, me], Pos),
         AgName \= me,
         pos_in_attack_range(Pos, AgPos).
+
 
 % Deseo de alta prioridad - Robarle a otro agente
 
@@ -273,12 +278,14 @@ high_priority(steal_agent([agent, AgName], ItemList), 'I saw an agent, gonna ste
         findall(Item, (has([agent, AgName], Item)), ItemList),
         ItemList \= [].
 
+
 % Deseo de alta prioridad - Agarrar un item
 
 high_priority(get([Item, ItName]), 'I saw an item, gonna pick it up...') :-
         at([agent, me], Pos),
         at([Item, ItName], Pos),
         (Item = gold; Item = potion).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -312,26 +319,26 @@ high_priority(get([Item, ItName]), 'I saw an item, gonna pick it up...') :-
 select_intention(rest, 'going to take a nap before...', Desires):-
 	member(rest, Desires),
 	property([agent, me], life, St),
-	St < 100.
+	Low is St * 0.35,
+	St < Low.
 
 
 % Seleccionar intencion - Saquear una tumba
 
-select_intention(break([grave, GrName1], ItemList), 'going to break into a grave', Desires) :-
-	writeln('SELECT INTENTION: PROFANAR UNA TUMBA'),
-        findall(GrPos, (member(break([grave, GrName2], ItemList2), Desires), at([grave, GrName2], GrPos)), Positions),
-        buscar_plan_desplazamiento(Positions, _Plan, Closer),
-        member(break([grave, GrName1], ItemList2), Desires),
-        at([grave, GrName1], Closer),
-        findall(Item, (has([grave, GrName1], Item)), ItemList),
-	writeln('SELECT INTENTION NO FALLIDO: PROFANAR UNA TUMBA').
+select_intention(break([grave, GrName1]), 'going to break into a grave', Desires) :-
+        member(break([grave, GrName1]), Desires),
+	search_closer_desire(Closer, Desires),
+        at([grave, GrName1], Closer).
+
 
 % Seleccionar intencion - Robarle a otro agente
+
 select_intention(steal_agent([agent, AgName], ItemList), 'going to steal an agent', _Desires) :-
         at([agent, AgName], _AgPos),
         AgName \= me,
         findall(Item, (has([agent, AgName], Item)), ItemList),
 	ItemList \= [].
+
 
 % Seleccionar intencion - Agarrar item
 %
@@ -344,24 +351,17 @@ select_intention(get([Item, ItName]), 'closest item I want to get', Desires) :-
         member(get([Item, ItName]), Desires).
 
 select_intention(get([Item, ItName]), 'closest item I want to get', Desires):-
-	% Obtengo posiciones de todos los objetos meta tirados en el suelo.
-	findall(ItPos, (member(get([Item, ItName]), Desires), (Item = gold; Item = potion), at([Item, ItName], ItPos)), Goals),	
-	buscar_plan_desplazamiento(Goals, _Plan, Closer),
+	% Obtengo posiciones de todos los objetos meta tirados en el suelo.	
 	member(get([Item, ItName]), Desires),
+	search_closer_desire(Closer, Desires),
         at([Item, ItName], Closer).
 
 
-% Seleccionar intencion - Explorar		
+% Seleccionar intencion - Explorar
+		
 select_intention(explore, 'gonna explore! looking for new challenges...', Desires) :-
 	member(explore, Desires).
 
-% Seleccionar intencion - Descansar porque no hay otras metas
-%
-% Si no existen objetos que deseen obtenerse, y existe el deseo de
-% descansar (stamina por debajo de 100), se decide ir a descansar.
-
-%select_intention(rest, 'No tengo otra cosa más interesante que hacer, asique me voy a dormir', Desires):-
-%	member(rest, Desires).
 
 % Seleccionar intencion - Moverse aleatoriamente
 
@@ -381,25 +381,27 @@ select_intention(move_at_random, 'nothing to do, gonna take a walk', Desires) :-
 achieved(goto(Pos)):-
 	at([agent, me], Pos).
 
+
 % Logrado si el agente tiene el item
 
 achieved(get(Item)):-
 	has([agent, me], Item).
+
 
 % Logrado si el agente esta descansado
 
 achieved(rest):-
 	property([agent, me], life, St),
 	property([agent, me], lifeTotal, MaxSt),
-	AlmostMaxSt is MaxSt - 10,
+	AlmostMaxSt is MaxSt * 0.90,
 	St > AlmostMaxSt.
+
 
 % Logrado si el agente tiene todos los items de la tumba
 
-achieved(break([grave, _GrName]), ItemList) :-
-        findall(Item, (has([agent, me], Item)), AgentBackpack),
-        subset(ItemList, AgentBackpack),
-	writeln('PUDE SAQUEAR UNA TUMBA').
+achieved(break([grave, GrName])) :-
+        not(has([grave, GrName], [gold, _])).
+
 
 % Logrado si el agente esta inconsiente o fuera del rango de ataque
 
@@ -413,11 +415,13 @@ achieved(attack_agent([agent, AgName])) :-
         AgName \= me,
         not(pos_in_attack_range(Pos, AgPos)).
 
+
 % Logrado si el agente tiene todos los items que tenia otro agente
 
 achieved(steal_agent([agent, _AgName], AgItemList)) :-
         findall(Item, (has([agent, me], Item)), ItemList),
         subset(ItemList, AgItemList).
+
 
 % Logrado si el agente esta en nuestro rango de ataque
 
@@ -426,6 +430,7 @@ achieved(chase_agent([agent, AgName])) :-
         atPos([agent, me], Pos),
         AgName \= me,
         pos_in_attack_range(Pos, AgPos).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -454,7 +459,6 @@ planning_and_execution(Action):-
 	next_primitive_action(Plan, Action, RestOfPlan),
 	write('Next action: '), writeln(Action),
 	assert(plan(RestOfPlan)).
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -518,9 +522,16 @@ planning_and_execution(Action):-
 planify(rest, Plan):- 
     Plan = [search_inn, stay].
 
-% Planificación recursiva. En este caso permite repetir indefinidamente una acción (noop) hasta que la intención de alto nivel corriente (rest) sea lograda (achieved/1). Esto se hizo así dado que resulta más simple que predecir de antemano cuantos turnos exactamente debe permanecer el agente para recargarse por completo (nótese que el agente podría incluso sufrir ataques mientras está en la posada, siendo imposible planificar de antemano cuantos turnos debe permanecer en la posada para reponerse por completo)
+
+% Planificación recursiva. En este caso permite repetir indefinidamente una acción (noop)
+% hasta que la intención de alto nivel corriente (rest) sea lograda (achieved/1).
+% Esto se hizo así dado que resulta más simple que predecir de antemano cuantos turnos 
+% exactamente debe permanecer el agente para recargarse por completo (nótese que el agente
+% podría incluso sufrir ataques mientras está en la posada, siendo imposible planificar de
+% antemano cuantos turnos debe permanecer en la posada para reponerse por completo)
 
 planify(stay, [noop , stay]). 
+
 
 % Planicación para buscar una posada
 
@@ -540,6 +551,7 @@ planify(search_inn, Plan):-
             	Posadas),
     	buscar_plan_desplazamiento(Posadas, Plan, _Destino).
 
+
 % Planificación para obtener item que esta en el suelo
 
 % Caso en que el agente está en la misma posición que el objeto
@@ -553,24 +565,16 @@ planify(get(Item), Plan):-
 	at(Item, ItPos),
 	Plan = [goto(ItPos), pickup(Item)].
 
-	
+
 % Planificación para desplazarse a un destino dado
 
 planify(goto(PosDest), Plan):- 
-	buscar_plan_desplazamiento([PosDest], Plan, _MetaLograda),
-	!. % Evita la búsqueda de soluciones alternativas para un plan de desplazamiento.
+	buscar_plan_desplazamiento([PosDest], Plan, _MetaLograda), !. % Evita la búsqueda de soluciones alternativas para un plan de desplazamiento.
 
-
-%planify(rest, Plan):- % Planificación para desplazarse a un destino dado
-
-	%at([inn, _H], PosH),  % Selecciona una posada para ir a descansar.
-				 % <<<CHOICE POINT>>> (Posibilidad de backtracking)
-
-	%Plan = [goto(PosH), stay].
 
 % Planificación para sabotear una tumba
 
-planify(break([grave, GrName], _ItemList), Plan) :-
+planify(break([grave, GrName]), Plan) :-
         has([agent, me], [potion, PtName]),
         at([grave, GrName], GrPos),
 	Plan = [goto(GrPos), cast_spell(open([grave, GrName], [potion, PtName]))].
@@ -591,25 +595,22 @@ planify(chase_agent([agent, AgName]), Plan) :-
         not(pos_in_attack_range(Pos, AgPos)),
         node(AgPos, _, Connections),
         random_member(NextPos, Connections),
-        writeln('Entre en el POS IN ATTACK RANGE - CHASE'),
-        writeln('Entre en el POS IN ATTACK RANGE - CHASE'),
         Plan = [goto(NextPos), chase_agent([agent, AgName])].
 
 
 planify(attack_agent([agent, AgName]), Plan) :-
         property([agent, me], life, St),
-        St > 150,
+	property([agent, me], lifeTotal, StMax),
+	Min is StMax * 0.35,
+        St > Min,
         property([agent, AgName], life, AgSt),
         AgSt > 0,
         atPos([agent, me], Pos),
         atPos([agent, AgName], AgPos),
         AgName \= me,
-        %atPos([inn, _InnName], InnPos),
-        %Pos \= InnPos,
         pos_in_attack_range(Pos, AgPos),
-        writeln('Entre en el POS IN ATTACK RANGE - ATTACK'),
-        writeln('Entre en el POS IN ATTACK RANGE - ATTACK'),
         Plan = [attack([agent, AgName]), attack_agent([agent, AgName])].
+
 
 % Planificación para explorar
 
@@ -631,19 +632,15 @@ planify(explore, Plan) :-
 	retractall(ucs),
         assert(ucs :- false).                 
 
+
 % Planificación para moverse aleatoriamente
 
 planify(move_at_random, Plan):-
-	writeln('ENTRE en el move_at_random'),
-	writeln('ENTRE en el move_at_random'),
-	not(planify(explore, Plan)),
-	writeln('NADA MAS QUE EXPLORAR'),
-	writeln('NADA MAS QUE EXPLORAR'),
 	findall(Node, node(Node, _, _), PossibleDestPos),
-
 	random_member(DestPos, PossibleDestPos), % Selecciona aleatoriamente una posición destino.
 				                 % <<<CHOICE POINT>>> (Posibilidad de backtracking)
 	Plan = [goto(DestPos)].
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -767,7 +764,6 @@ remove_executed_ancestors([[_]| Rest], Clean):-
 remove_executed_ancestors(Clean, Clean).
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % primitive(ActionName).
@@ -796,6 +792,7 @@ feasible(Plan):-
 	% El plan puede ejecutarse con éxito a partir del estado actual. Si alguna de las precondiciones de las
         % acciones del plan ya no se satisfacen (por ejemplo, el tesoro que voy a juntar ya no se encuentra más
         % en la posición que recordaba), entonces project/3 fallará, reflejando que el plan no es factible.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -827,6 +824,7 @@ entrada_habilitada(EntradaProhibida,Distancia) :-
         TiempoRestante is ForbiddenUntil - T,
         Distancia >= TiempoRestante.
 
+
 % interior(+Connections)
 % Determina si los vecinos de una posicion dada se encuentran en el radio
 % de vision del agente. No se exploran posiciones que se sean visibles para el agente,
@@ -837,6 +835,20 @@ entrada_habilitada(EntradaProhibida,Distancia) :-
 interior([]).
 
 interior([[Ady,_]|Connections]) :- node(Ady,_,_), interior(Connections).
+
+
+% search_closer_desire(+-Closer, +Desires)
+% Determina un plan de desplazamiento desde la posicion actual hasta el item
+% (oro o pocion) o tumba que se encuentre mas cercano.
+%
+% -Closer - Posicion del item o tumba mas cercana
+% +Desires - Deseos actuales del agente
+
+search_closer_desire(Closer, Desires) :-
+	findall(GrPos, (member(break([grave, GrName]), Desires), at([grave, GrName], GrPos)), GravePositions),	
+	findall(ItPos,(member(get([Item, ItName]), Desires), (Item = gold; Item = potion), at([Item, ItName], ItPos)), ItemPositions),
+	append(GravePositions, ItemPositions, Positions),
+	buscar_plan_desplazamiento(Positions, _Plan, Closer), !.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -868,7 +880,6 @@ start_ag:- AgName = dumptrooper,
 s:- start_ag.
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % start_ag_instance(+InstanceID)
@@ -888,5 +899,6 @@ start_ag_instance(InstanceID):-
 		    connect,
 		    run,
 		    disconnect.
+
 
 si(InstanceID):- start_ag_instance(InstanceID).

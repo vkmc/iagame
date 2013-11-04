@@ -12,7 +12,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%           AGENT	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%           AGENT	   	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%       EXECUTION CYCLE	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -24,7 +24,7 @@ run:-
 
       ag_name(_AgName),
 
-      %tell('log.txt'),
+      tell('log.txt'),
 
       update_beliefs(Percept),
 
@@ -170,11 +170,19 @@ deliberate:-            % Si llega acá significa que falló el next_primitive_act
 % string con una descripción narrada (breve) de dichas razones,
 % que luego puede ser impresa por pantalla.
 
+% Deseo descansar
+%
+% Si la vida del agente es menor a 100, desea descansar
+
+desire(rest, 'want to have a nap'):-
+	property([agent, me], life, St),
+	St < 150.
+
 % Deseo robar a otro agente
 %
 % Si recuerdo que vi un agente, ir a robarle es una meta
 
-desire(steal_agent([agent, AgName], _ItemList), 'Me encantaria pungear a un agente...') :-
+desire(steal_agent([agent, AgName], _ItemList), 'I wanna steal from an agent') :-
         at([agent, AgName], _Pos), AgName \= me.
 
 % Deseo agarrar oro o pocion
@@ -182,7 +190,7 @@ desire(steal_agent([agent, AgName], _ItemList), 'Me encantaria pungear a un agen
 % Si recuerdo que hay oro o una pocion en el piso, agarrar ese oro o pocion
 % es una meta
 
-desire(get([Item, ItName]), 'Quiero agarrar oro/pociones!') :-
+desire(get([Item, ItName]), 'I wanna grab gold/potions!') :-
         (Item = potion; Item = gold),
         at([Item, ItName], _PosIt).
 		
@@ -191,26 +199,18 @@ desire(get([Item, ItName]), 'Quiero agarrar oro/pociones!') :-
 %
 % Si me encuentro con una tumba, deseo saquearla
 
-desire(break([grave, GrName], TrList), "Quiero profanar una tumba") :-
+desire(break([grave, GrName], TrList), "I wanna break into a grave") :-
 	at([grave, GrName], _PosGr),
         writeln('DESEO: PROFANAR UNA TUMBA'),
         has([agent, me], [potion,_]),
 	writeln('TENGO UNA POCION'),
         findall(Gold, (has(grave, Gold)), TrList).
 
-% Deseo descansar
-%
-% Si la vida del agente es menor a 100, desea descansar
-
-desire(rest, 'Quiero descansar'):-
-	property([agent, me], life, St),
-	St < 100.
-
 % Deseo explorar
 %
 % Si el agente no tiene algo mas importante que hacer, explora el mapa
 
-desire(explore, 'Quiero explorar'):-
+desire(explore, 'I wanna go explore'):-
 	findall(        Pos,
                 (
                         node(Pos,_,Connections),                        
@@ -220,13 +220,15 @@ desire(explore, 'Quiero explorar'):-
                         SinExplorar
                
                ),
-	SinExplorar \= [].
+	SinExplorar \= [],
+	writeln('Voy a explorar'),
+	writeln(SinExplorar).
 
 % Deseo moverme
 %
 % Para no aburrirse, camina sin rumbo (en usa de esas se cruza otro agente!)
 
-desire(move_at_random, 'Quiero estar siempre en movimiento!').
+desire(move_at_random, 'I wanna keep moving!').
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -247,15 +249,15 @@ desire(move_at_random, 'Quiero estar siempre en movimiento!').
 
 % Deseo de alta prioridad - Descansar
 
-high_priority(rest, 'Necesito descansar'):-
+high_priority(rest, 'I need to rest'):-
 	property([agent, me], life, St),
-	St < 70, % running low of life...
+	St < 150, % running low of life...
 	once(at([inn, _HName], _Pos)). % se conoce al menos una posada
 
 
 % Deseo de alta prioridad - Atacar agente
 
-high_priority(attack_agent([agent, AgName]), 'Me atacan! Devolviendo ataque...') :-
+high_priority(attack_agent([agent, AgName]), 'I\'m being attacked! Attacking back...') :-
         atPos([agent, AgName], AgPos),
         atPos([agent, me], Pos),
         AgName \= me,
@@ -263,7 +265,7 @@ high_priority(attack_agent([agent, AgName]), 'Me atacan! Devolviendo ataque...')
 
 % Deseo de alta prioridad - Robarle a otro agente
 
-high_priority(steal_agent([agent, AgName], ItemList), 'Me cruce un agente, voy a robarle!') :-
+high_priority(steal_agent([agent, AgName], ItemList), 'I saw an agent, gonna steal from him!') :-
         at([agent, AgName], _),
         AgName \= me,
         property([agent, AgName], life, St),
@@ -273,7 +275,7 @@ high_priority(steal_agent([agent, AgName], ItemList), 'Me cruce un agente, voy a
 
 % Deseo de alta prioridad - Agarrar un item
 
-high_priority(get([Item, ItName]), 'Encontre un item, voy a agarrarlo...') :-
+high_priority(get([Item, ItName]), 'I saw an item, gonna pick it up...') :-
         at([agent, me], Pos),
         at([Item, ItName], Pos),
         (Item = gold; Item = potion).
@@ -307,7 +309,7 @@ high_priority(get([Item, ItName]), 'Encontre un item, voy a agarrarlo...') :-
 % Dado que el nivel de stamina es relativamente bajo, se decide ir
 % descansar antes de abordar otro deseo.
 
-select_intention(rest, 'Voy a descansar antes de encarar otro deseo', Desires):-
+select_intention(rest, 'going to take a nap before...', Desires):-
 	member(rest, Desires),
 	property([agent, me], life, St),
 	St < 100.
@@ -315,44 +317,42 @@ select_intention(rest, 'Voy a descansar antes de encarar otro deseo', Desires):-
 
 % Seleccionar intencion - Saquear una tumba
 
-select_intention(break([grave, GrName1], ItemList), 'Voy a saquear una tumba', Desires) :-
-		writeln('SELECT INTENTION: PROFANAR UNA TUMBA'),
+select_intention(break([grave, GrName1], ItemList), 'going to break into a grave', Desires) :-
+	writeln('SELECT INTENTION: PROFANAR UNA TUMBA'),
         findall(GrPos, (member(break([grave, GrName2], ItemList2), Desires), at([grave, GrName2], GrPos)), Positions),
         buscar_plan_desplazamiento(Positions, _Plan, Closer),
         member(break([grave, GrName1], ItemList2), Desires),
         at([grave, GrName1], Closer),
         findall(Item, (has([grave, GrName1], Item)), ItemList),
-		writeln('SELECT INTENTION NO FALLIDO: PROFANAR UNA TUMBA').
+	writeln('SELECT INTENTION NO FALLIDO: PROFANAR UNA TUMBA').
 
 % Seleccionar intencion - Robarle a otro agente
-select_intention(steal_agent([agent, AgName], ItemList), 'Voy a robarle a otro agente', _Desires) :-
+select_intention(steal_agent([agent, AgName], ItemList), 'going to steal an agent', _Desires) :-
         at([agent, AgName], _AgPos),
         AgName \= me,
-        findall(Item, (has([agent, AgName], Item)), ItemList).
+        findall(Item, (has([agent, AgName], Item)), ItemList),
+	ItemList \= [].
 
 % Seleccionar intencion - Agarrar item
 %
 % De todos los posibles objetos tirados en el suelo que el agente desea tener,
 % selecciono como intención obtener aquel que se encuentra más cerca.
 
-select_intention(get([Item, ItName]), 'Item más cercano de los que deseo obtener', Desires) :-
+select_intention(get([Item, ItName]), 'closest item I want to get', Desires) :-
         at([agent, me], Pos),
         at([Item, ItName], Pos),
         member(get([Item, ItName]), Desires).
 
-select_intention(get([Item, ItName]), 'Item más cercano de los que deseo obtener', Desires):-
-	findall(ItPos,
-				(member(get([Item, ItName]), Desires),
-                (Item = gold; Item = potion),
-				at([Item, ItName], ItPos)),
-		Goals), % Obtengo posiciones de todos los objetos meta tirados en el suelo.
+select_intention(get([Item, ItName]), 'closest item I want to get', Desires):-
+	% Obtengo posiciones de todos los objetos meta tirados en el suelo.
+	findall(ItPos, (member(get([Item, ItName]), Desires), (Item = gold; Item = potion), at([Item, ItName], ItPos)), Goals),	
 	buscar_plan_desplazamiento(Goals, _Plan, Closer),
 	member(get([Item, ItName]), Desires),
         at([Item, ItName], Closer).
 
 
 % Seleccionar intencion - Explorar		
-select_intention(explore, 'Voy a explorar! A ver que encuentro...', Desires) :-
+select_intention(explore, 'gonna explore! looking for new challenges...', Desires) :-
 	member(explore, Desires).
 
 % Seleccionar intencion - Descansar porque no hay otras metas
@@ -360,16 +360,13 @@ select_intention(explore, 'Voy a explorar! A ver que encuentro...', Desires) :-
 % Si no existen objetos que deseen obtenerse, y existe el deseo de
 % descansar (stamina por debajo de 100), se decide ir a descansar.
 
-select_intention(rest, 'No tengo otra cosa más interesante que hacer, asique me voy a dormir', Desires):-
-	member(rest, Desires).
+%select_intention(rest, 'No tengo otra cosa más interesante que hacer, asique me voy a dormir', Desires):-
+%	member(rest, Desires).
 
 % Seleccionar intencion - Moverse aleatoriamente
 
-select_intention(move_at_random, 'No tengo otra cosa más interesante que hacer, asi que voy a caminar', Desires) :-
+select_intention(move_at_random, 'nothing to do, gonna take a walk', Desires) :-
         member(move_at_random, Desires).
-
-
-% TODO Atacar agente?
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -451,8 +448,8 @@ achieved(chase_agent([agent, AgName])) :-
 
 planning_and_execution(Action):-
 
-	retract(plan(Plan)),      % Ejecutar siguiente acción del plan.
-
+	retract(plan(Plan)),
+	% Ejecutar siguiente acción del plan.
 	write('Following plan: '), writeln(Plan), nl,
 	next_primitive_action(Plan, Action, RestOfPlan),
 	write('Next action: '), writeln(Action),
@@ -529,7 +526,7 @@ planify(stay, [noop , stay]).
 
 planify(search_inn, Plan):-
 % Esto debería funcionar, es el código que usamos en la entrega anterior
-    findall(InnPos,
+    	findall(InnPos,
                 (
                         at([inn,IName], InnPos),
                         node(InnPos, InnVector, _),
@@ -540,17 +537,16 @@ planify(search_inn, Plan):-
                         distance(MyVector, InnVector, InnDist),
                         entrada_habilitada(EntradaProhibida, InnDist)
                 ),
-            Posadas),
-    buscar_plan_desplazamiento(Posadas, _, Destino),
-    Plan = [goto(Destino)].
+            	Posadas),
+    	buscar_plan_desplazamiento(Posadas, Plan, _Destino).
 
 % Planificación para obtener item que esta en el suelo
 
 % Caso en que el agente está en la misma posición que el objeto
 planify(get(Item),Plan):-
-    at(Item, ItPos),
-    at([agent, me], ItPos),
-    Plan = [pickup(Item)],!.
+    	at(Item, ItPos),
+    	at([agent, me], ItPos),
+    	Plan = [pickup(Item)],!.
 
 % Caso en que el agente tiene que ir hasta la posición en la que esta el objeto
 planify(get(Item), Plan):- 
@@ -588,6 +584,7 @@ planify(steal_agent([agent, AgName], ItemList), Plan) :-
         findall(get(Item), (member(Item, ItemList)), Actions),
         append([chase_agent([agent, AgName]), attack_agent([agent, AgName])], Actions, Plan).
 
+
 planify(chase_agent([agent, AgName]), Plan) :-
         atPos([agent, AgName], AgPos),
         atPos([agent, me], Pos),
@@ -597,6 +594,7 @@ planify(chase_agent([agent, AgName]), Plan) :-
         writeln('Entre en el POS IN ATTACK RANGE - CHASE'),
         writeln('Entre en el POS IN ATTACK RANGE - CHASE'),
         Plan = [goto(NextPos), chase_agent([agent, AgName])].
+
 
 planify(attack_agent([agent, AgName]), Plan) :-
         property([agent, me], life, St),
@@ -630,12 +628,17 @@ planify(explore, Plan) :-
         assert(ucs :- true),
         % Se efectua una busqueda UCS con las metas obtenidas
         buscar_plan_desplazamiento(SinExplorar, Plan, _Destino),
-		retractall(ucs),
+	retractall(ucs),
         assert(ucs :- false).                 
 
 % Planificación para moverse aleatoriamente
 
 planify(move_at_random, Plan):-
+	writeln('ENTRE en el move_at_random'),
+	writeln('ENTRE en el move_at_random'),
+	not(planify(explore, Plan)),
+	writeln('NADA MAS QUE EXPLORAR'),
+	writeln('NADA MAS QUE EXPLORAR'),
 	findall(Node, node(Node, _, _), PossibleDestPos),
 
 	random_member(DestPos, PossibleDestPos), % Selecciona aleatoriamente una posición destino.
@@ -877,7 +880,7 @@ s:- start_ag.
 
 
 start_ag_instance(InstanceID):-
-                    AgClassName = agentBDI,
+                    AgClassName = dumbtrooper,
                     AgInstanceName =.. [AgClassName, InstanceID],
 		    agent_init(AgInstanceName),
 		    assert(ag_name(AgInstanceName)),

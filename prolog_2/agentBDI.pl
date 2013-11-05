@@ -174,9 +174,7 @@ deliberate:-            % Si llega acá significa que falló el next_primitive_act
 
 desire(rest, 'want to have a nap'):-
 	property([agent, me], life, St),
-	property([agent, me], lifeTotal, StMax),
-	Min is StMax * 0.35,
-	St < Min.
+	St < 150.
 
 
 % Deseo robar a otro agente
@@ -189,9 +187,7 @@ desire(steal_agent([agent, AgName], ItemList), 'I wanna steal from an agent') :-
 	property([agent, AgName], life, AgSt),
 	property([agent, me], life, St),
 	AgSt < St,
-	property([agent, me], lifeTotal, StMax),
-	Min is StMax * 0.35,
-	St > Min,
+	St > 150,
 	findall(ItName, has([agent, AgName], [_Item, ItName]), ItemList),
 	ItemList \= [].
 
@@ -259,21 +255,19 @@ desire(move_at_random, 'I wanna keep moving!').
 
 % Deseo de alta prioridad - Descansar
 
-high_priority(rest, 'I need to rest'):-
+high_priority(rest, 'I need to rest') :-
 	property([agent, me], life, St),
-	property([agent, me], lifeTotal, StMax),
-	Min is StMax * 0.35,
-	St < Min, % running low of life...
+	St < 150, % running low of life...
 	once(at([inn, _HName], _Pos)). % se conoce al menos una posada
 
-high_priority(rest, 'Since I\'m around, I could take a nap') :-
+high_priority(rest, 'Since I am around, I could take a nap') :-
 	atPos([agent, me], Pos),
 	atPos([inn, _InnName], Pos).
 
 
 % Deseo de alta prioridad - Atacar agente
 
-high_priority(attack_agent([agent, AgName]), 'I\'m being attacked! Attacking back...') :-
+high_priority(attack_agent([agent, AgName]), 'I am being attacked! Attacking back...') :-
         atPos([agent, AgName], AgPos),
         atPos([agent, me], Pos),
         AgName \= me,
@@ -290,9 +284,7 @@ high_priority(steal_agent([agent, AgName], ItemList), 'I saw an agent, gonna ste
 	property([agent, AgName], life, AgSt),
 	property([agent, me], life, St),
 	AgSt < St,
-	property([agent, me], lifeTotal, StMax),
-	Min is StMax * 0.35,
-	St > Min,
+	St > 150,
 	findall(ItName, has([agent, AgName], [_Item, ItName]), ItemList),
 	ItemList \= [].
 
@@ -404,7 +396,7 @@ achieved(get(Item)):-
 achieved(rest):-
 	property([agent, me], life, St),
 	property([agent, me], lifeTotal, MaxSt),
-	AlmostMaxSt is MaxSt * 0.90,
+	AlmostMaxSt is MaxSt - 10,
 	St > AlmostMaxSt.
 
 
@@ -611,9 +603,7 @@ planify(chase_agent([agent, AgName]), Plan) :-
 
 planify(attack_agent([agent, AgName]), Plan) :-
         property([agent, me], life, St),
-	property([agent, me], lifeTotal, StMax),
-	Min is StMax * 0.35,
-        St > Min,
+        St > 150,
         property([agent, AgName], life, AgSt),
         AgSt > 0,
         atPos([agent, me], Pos),

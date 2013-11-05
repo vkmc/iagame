@@ -24,7 +24,7 @@ run:-
 
       ag_name(_AgName),
 
-      tell('log.txt'),
+      %tell('log.txt'),
 
       update_beliefs(Percept),
 
@@ -174,15 +174,26 @@ deliberate:-            % Si llega acá significa que falló el next_primitive_act
 
 desire(rest, 'want to have a nap'):-
 	property([agent, me], life, St),
-	St < 150.
+	property([agent, me], lifeTotal, StMax),
+	Min is StMax * 0.35,
+	St < Min.
 
 
 % Deseo robar a otro agente
 %
 % Si recuerdo que vi un agente, ir a robarle es una meta
 
-desire(steal_agent([agent, AgName], _ItemList), 'I wanna steal from an agent') :-
-        at([agent, AgName], _Pos), AgName \= me.
+desire(steal_agent([agent, AgName], ItemList), 'I wanna steal from an agent') :-
+        at([agent, AgName], _Pos),
+	AgName \= me,
+	property([agent, AgName], life, AgSt),
+	property([agent, me], life, St),
+	AgSt < St,
+	property([agent, me], lifeTotal, StMax),
+	Min is StMax * 0.35,
+	St > Min,
+	findall(ItName, has([agent, AgName], [_Item, ItName]), ItemList),
+	ItemList \= [].
 
 
 % Deseo agarrar oro o pocion
@@ -250,8 +261,9 @@ desire(move_at_random, 'I wanna keep moving!').
 
 high_priority(rest, 'I need to rest'):-
 	property([agent, me], life, St),
-	Low is St * 0.35,
-	St < Low, % running low of life...
+	property([agent, me], lifeTotal, StMax),
+	Min is StMax * 0.35,
+	St < Min, % running low of life...
 	once(at([inn, _HName], _Pos)). % se conoce al menos una posada
 
 high_priority(rest, 'Since I\'m around, I could take a nap') :-
@@ -265,19 +277,24 @@ high_priority(attack_agent([agent, AgName]), 'I\'m being attacked! Attacking bac
         atPos([agent, AgName], AgPos),
         atPos([agent, me], Pos),
         AgName \= me,
+	property([agent, AgName], life, AgSt),
+	AgSt > 0,
         pos_in_attack_range(Pos, AgPos).
 
 
 % Deseo de alta prioridad - Robarle a otro agente
 
 high_priority(steal_agent([agent, AgName], ItemList), 'I saw an agent, gonna steal from him!') :-
-        at([agent, AgName], _),
-        AgName \= me,
-        property([agent, AgName], life, St),
-        St = 0,
-        findall(Item, (has([agent, AgName], Item)), ItemList),
-        ItemList \= [].
-
+        at([agent, AgName], _Pos),
+	AgName \= me,
+	property([agent, AgName], life, AgSt),
+	property([agent, me], life, St),
+	AgSt < St,
+	property([agent, me], lifeTotal, StMax),
+	Min is StMax * 0.35,
+	St > Min,
+	findall(ItName, has([agent, AgName], [_Item, ItName]), ItemList),
+	ItemList \= [].
 
 % Deseo de alta prioridad - Agarrar un item
 
@@ -317,27 +334,22 @@ high_priority(get([Item, ItName]), 'I saw an item, gonna pick it up...') :-
 % descansar antes de abordar otro deseo.
 
 select_intention(rest, 'going to take a nap before...', Desires):-
-	member(rest, Desires),
-	property([agent, me], life, St),
-	Low is St * 0.35,
-	St < Low.
+	member(rest, Desires).
+
+
+% Seleccionar intencion - Robarle a otro agente
+
+select_intention(steal_agent([agent, AgName], ItemList), 'going to steal an agent', Desires) :-
+	member(steal_agent([agent, AgName], ItemList), Desires),
+        findall(Item, (has([agent, AgName], Item)), ItemList).
 
 
 % Seleccionar intencion - Saquear una tumba
 
 select_intention(break([grave, GrName1]), 'going to break into a grave', Desires) :-
         member(break([grave, GrName1]), Desires),
-	search_closer_desire(Closer, Desires),
+	buscar_deseo_cercano(Closer, Desires),
         at([grave, GrName1], Closer).
-
-
-% Seleccionar intencion - Robarle a otro agente
-
-select_intention(steal_agent([agent, AgName], ItemList), 'going to steal an agent', _Desires) :-
-        at([agent, AgName], _AgPos),
-        AgName \= me,
-        findall(Item, (has([agent, AgName], Item)), ItemList),
-	ItemList \= [].
 
 
 % Seleccionar intencion - Agarrar item
@@ -346,14 +358,13 @@ select_intention(steal_agent([agent, AgName], ItemList), 'going to steal an agen
 % selecciono como intención obtener aquel que se encuentra más cerca.
 
 select_intention(get([Item, ItName]), 'closest item I want to get', Desires) :-
-        at([agent, me], Pos),
-        at([Item, ItName], Pos),
-        member(get([Item, ItName]), Desires).
+        member(get([Item, ItName]), Desires),
+	at([agent, me], Pos),
+        at([Item, ItName], Pos).
 
-select_intention(get([Item, ItName]), 'closest item I want to get', Desires):-
-	% Obtengo posiciones de todos los objetos meta tirados en el suelo.	
+select_intention(get([Item, ItName]), 'item in my sight I want to get', Desires):-
 	member(get([Item, ItName]), Desires),
-	search_closer_desire(Closer, Desires),
+	buscar_deseo_cercano(Closer, Desires),
         at([Item, ItName], Closer).
 
 
@@ -420,7 +431,7 @@ achieved(attack_agent([agent, AgName])) :-
 
 achieved(steal_agent([agent, _AgName], AgItemList)) :-
         findall(Item, (has([agent, me], Item)), ItemList),
-        subset(ItemList, AgItemList).
+        subset(ItemList, AgItemList.
 
 
 % Logrado si el agente esta en nuestro rango de ataque
@@ -837,18 +848,18 @@ interior([]).
 interior([[Ady,_]|Connections]) :- node(Ady,_,_), interior(Connections).
 
 
-% search_closer_desire(+-Closer, +Desires)
+% buscar_deseo_cercano(-Posiciones, +Deseos)
 % Determina un plan de desplazamiento desde la posicion actual hasta el item
 % (oro o pocion) o tumba que se encuentre mas cercano.
 %
-% -Closer - Posicion del item o tumba mas cercana
-% +Desires - Deseos actuales del agente
+% -Posiciones - Posicion del item o tumba mas cercana
+% +Deseos - Deseos actuales del agente
 
-search_closer_desire(Closer, Desires) :-
-	findall(GrPos, (member(break([grave, GrName]), Desires), at([grave, GrName], GrPos)), GravePositions),	
-	findall(ItPos,(member(get([Item, ItName]), Desires), (Item = gold; Item = potion), at([Item, ItName], ItPos)), ItemPositions),
+buscar_deseo_cercano(Posiciones, Deseos) :-
+	findall(GrPos, (member(break([grave, GrName]), Deseos), at([grave, GrName], GrPos)), GravePositions),	
+	findall(ItPos,(member(get([Item, ItName]), Deseos), (Item = gold; Item = potion), at([Item, ItName], ItPos)), ItemPositions),
 	append(GravePositions, ItemPositions, Positions),
-	buscar_plan_desplazamiento(Positions, _Plan, Closer), !.
+	buscar_plan_desplazamiento(Positions, _Plan, Posiciones), !.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

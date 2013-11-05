@@ -12,7 +12,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%           AGENT	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%           AGENT	       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%       EXECUTION CYCLE	   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%                          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -24,11 +24,11 @@ run:-
 
       ag_name(_AgName),
 
-      %tell('log.txt'),
+      tell('log.txt'),
 
       update_beliefs(Percept),
 
-      display_ag, nl, !,
+      % display_ag, nl, !,
 
       deliberate,
 
@@ -431,7 +431,7 @@ achieved(attack_agent([agent, AgName])) :-
 
 achieved(steal_agent([agent, _AgName], AgItemList)) :-
         findall(Item, (has([agent, me], Item)), ItemList),
-        subset(ItemList, AgItemList.
+        subset(ItemList, AgItemList).
 
 
 % Logrado si el agente esta en nuestro rango de ataque
